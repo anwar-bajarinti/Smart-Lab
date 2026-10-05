@@ -1,0 +1,19 @@
+{
+  "name": "smart-lab-dashboard",
+  "version": "1.0.0",
+  "description": "Smart Lab Automation Real-time Web Dashboard",
+  "main": "index.html",
+  "scripts": {
+    "start": "python -m http.server 3000",
+    "build": "echo \"Dashboard assets ready in frontend/\""
+  },
+  "keywords": [
+    "smart-lab",
+    "computer-vision",
+    "iot",
+    "esp32",
+    "dashboard"
+  ],
+  "author": "Smart Lab Team",
+  "license": "MIT"
+}

@@ -1,0 +1,286 @@
+"""
+End-to-end integration tests for the Core Camera -> 3x3 Zones -> Gesture -> Relay Pipeline.
+Explicitly verifies the 8 core operational requirements requested by the user:
+1. Person enters Z2 -> Light 1 ON
+2. Person leaves Z2 -> Light 1 OFF after timeout
+3. Person enters Z8 -> Light 2 ON
+4. One hand in Z2 -> Light 1 OFF (MANUAL_OFF)
+5. Two hands in Z2 -> Light 1 ON (MANUAL_ON)
+6. Person in Z2 and another in Z8 -> both work independently
+7. Gesture in Z2 must never affect Z8
+8. Moving between zones must update control correctly
+"""
+
+import numpy as np
+import pytest
+from vision.zone_manager import ZoneManager
+from vision.occupancy_manager import OccupancyManager
+from vision.esp32_relay_bridge import ESP32RelayBridge
+
+
+def make_keypoints_for_zone(cx: float, cy: float, left_up: bool = False, right_up: bool = False) -> np.ndarray:
+    """Generates standard 17 COCO keypoints centered at floor position (cx, cy)."""
+    k = np.zeros((17, 3), dtype=np.float32)
+    k[:, 2] = 0.95
+    # Shoulders
+    k[5] = [cx - 25, cy - 60, 0.95]
+    k[6] = [cx + 25, cy - 60, 0.95]
+    # Hips
+    k[11] = [cx - 20, cy - 20, 0.95]
+    k[12] = [cx + 20, cy - 20, 0.95]
+    # Ankles (floor position)
+    k[15] = [cx - 15, cy, 0.95]
+    k[16] = [cx + 15, cy, 0.95]
+    # Left arm
+    if left_up:
+        k[7] = [cx - 30, cy - 90, 0.95]
+        k[9] = [cx - 35, cy - 130, 0.95]  # Wrist above shoulder
+    else:
+        k[7] = [cx - 30, cy - 40, 0.95]
+        k[9] = [cx - 30, cy - 15, 0.95]
+    # Right arm
+    if right_up:
+        k[8] = [cx + 30, cy - 90, 0.95]
+        k[10] = [cx + 35, cy - 130, 0.95]  # Wrist above shoulder
+    else:
+        k[8] = [cx + 30, cy - 40, 0.95]
+        k[10] = [cx + 30, cy - 15, 0.95]
+    return k
+
+
+class MockRelayBridge(ESP32RelayBridge):
+    """Test subclass tracking physical relay switching events."""
+    def __init__(self):
+        super().__init__(config_path="config/relay_mapping.json")
+        self.dispatched_commands = []
+
+    def send_relay_command(self, relay_id: str, state: bool):
+        self.dispatched_commands.append((relay_id, state))
+        self.relay_states[relay_id] = state
+
+
+@pytest.fixture
+def lab_env():
+    zm = ZoneManager(config_path="config/zones.json")
+    mgr = OccupancyManager(zone_manager=zm, leave_timeout_sec=2.5, gesture_stability_sec=0.7)
+    bridge = MockRelayBridge()
+    # 1200x900 resolution
+    w, h = 1200, 900
+    # Z2 center: col 1, row 0 -> (600, 150)
+    # Z8 center: col 1, row 2 -> (600, 750)
+    z2_pos = (600.0, 150.0)
+    z8_pos = (600.0, 750.0)
+    return zm, mgr, bridge, w, h, z2_pos, z8_pos
+
+
+def test_1_person_enters_z2_light1_on(lab_env):
+    """Scenario 1: Person enters Z2 -> Light 1 (Relay 1) turns ON."""
+    _, mgr, bridge, w, h, z2_pos, _ = lab_env
+    kpts = make_keypoints_for_zone(z2_pos[0], z2_pos[1], left_up=False, right_up=False)
+    detections = [{"tracking_id": 1, "bbox": (z2_pos[0]-40, z2_pos[1]-150, z2_pos[0]+40, z2_pos[1]), "keypoints": kpts}]
+
+    mgr.process_frame_detections(detections, w, h, current_time=10.0)
+    bridge.sync_zone_states(mgr.zones)
+
+    assert mgr.zones["Z2"].occupied is True
+    assert mgr.zones["Z2"].light_state is True
+    assert bridge.relay_states["1"] is True  # Relay 1 (GPIO 22) is ON!
+
+
+def test_2_person_leaves_z2_light1_off_after_timeout(lab_env):
+    """Scenario 2: Person leaves Z2 -> Light 1 stays ON during grace period, turns OFF after 2.5s timeout."""
+    _, mgr, bridge, w, h, z2_pos, _ = lab_env
+    kpts = make_keypoints_for_zone(z2_pos[0], z2_pos[1], left_up=False, right_up=False)
+    detections = [{"tracking_id": 1, "bbox": (z2_pos[0]-40, z2_pos[1]-150, z2_pos[0]+40, z2_pos[1]), "keypoints": kpts}]
+
+    # Step 1: Person in Z2 at t = 10.0
+    mgr.process_frame_detections(detections, w, h, current_time=10.0)
+    bridge.sync_zone_states(mgr.zones)
+    assert bridge.relay_states["1"] is True
+
+    # Step 2: Person leaves, checked at t = 11.5 (1.5s after leave < 2.5s timeout)
+    mgr.process_frame_detections([], w, h, current_time=11.5)
+    bridge.sync_zone_states(mgr.zones)
+    assert mgr.zones["Z2"].occupied is True
+    assert bridge.relay_states["1"] is True  # Must stay ON during grace period!
+
+    # Step 3: Checked at t = 12.6 (2.6s after leave >= 2.5s timeout)
+    mgr.process_frame_detections([], w, h, current_time=12.6)
+    bridge.sync_zone_states(mgr.zones)
+    assert mgr.zones["Z2"].occupied is False
+    assert mgr.zones["Z2"].light_state is False
+    assert bridge.relay_states["1"] is False  # Now Relay 1 turns OFF!
+
+
+def test_3_person_enters_z8_light2_on(lab_env):
+    """Scenario 3: Person enters Z8 -> Light 2 (Relay 2) turns ON."""
+    _, mgr, bridge, w, h, _, z8_pos = lab_env
+    kpts = make_keypoints_for_zone(z8_pos[0], z8_pos[1], left_up=False, right_up=False)
+    detections = [{"tracking_id": 2, "bbox": (z8_pos[0]-40, z8_pos[1]-150, z8_pos[0]+40, z8_pos[1]), "keypoints": kpts}]
+
+    mgr.process_frame_detections(detections, w, h, current_time=20.0)
+    bridge.sync_zone_states(mgr.zones)
+
+    assert mgr.zones["Z8"].occupied is True
+    assert mgr.zones["Z8"].light_state is True
+    assert bridge.relay_states["2"] is True  # Relay 2 (GPIO 23) is ON!
+    assert bridge.relay_states["1"] is False  # Relay 1 unaffected
+
+
+def test_4_one_hand_in_z2_light1_off(lab_env):
+    """
+    Scenario 4: Person in Z2 raises 1 hand for >0.7s:
+    Light 1 turns OFF (MANUAL_OFF) and stays OFF while person stands there.
+    """
+    _, mgr, bridge, w, h, z2_pos, _ = lab_env
+    # 1 hand raised
+    kpts_1hand = make_keypoints_for_zone(z2_pos[0], z2_pos[1], left_up=True, right_up=False)
+    det = [{"tracking_id": 1, "bbox": (z2_pos[0]-40, z2_pos[1]-150, z2_pos[0]+40, z2_pos[1]), "keypoints": kpts_1hand}]
+
+    t0 = 30.0
+    # Initial detection (enters in AUTO)
+    mgr.process_frame_detections(det, w, h, current_time=t0)
+    bridge.sync_zone_states(mgr.zones)
+    assert bridge.relay_states["1"] is True
+
+    # Gesture held for 0.8s (> 0.7s debounce)
+    mgr.process_frame_detections(det, w, h, current_time=t0 + 0.8)
+    bridge.sync_zone_states(mgr.zones)
+
+    assert mgr.zones["Z2"].mode == "MANUAL_OFF"
+    assert mgr.zones["Z2"].light_state is False
+    assert bridge.relay_states["1"] is False  # Relay 1 turned OFF!
+
+    # Person lowers hand to 0 while remaining standing in Z2
+    kpts_0hands = make_keypoints_for_zone(z2_pos[0], z2_pos[1], left_up=False, right_up=False)
+    det_0 = [{"tracking_id": 1, "bbox": (z2_pos[0]-40, z2_pos[1]-150, z2_pos[0]+40, z2_pos[1]), "keypoints": kpts_0hands}]
+    mgr.process_frame_detections(det_0, w, h, current_time=t0 + 2.0)
+    bridge.sync_zone_states(mgr.zones)
+
+    # Must REMAIN OFF!
+    assert mgr.zones["Z2"].mode == "MANUAL_OFF"
+    assert bridge.relay_states["1"] is False
+
+
+def test_5_two_hands_in_z2_light1_on(lab_env):
+    """
+    Scenario 5: Person in Z2 raises 2 hands:
+    Overrides previous MANUAL_OFF and turns Light 1 ON (MANUAL_ON).
+    """
+    _, mgr, bridge, w, h, z2_pos, _ = lab_env
+    kpts_1hand = make_keypoints_for_zone(z2_pos[0], z2_pos[1], left_up=True, right_up=False)
+    det_1 = [{"tracking_id": 1, "bbox": (z2_pos[0]-40, z2_pos[1]-150, z2_pos[0]+40, z2_pos[1]), "keypoints": kpts_1hand}]
+
+    t0 = 40.0
+    # First set MANUAL_OFF
+    mgr.process_frame_detections(det_1, w, h, current_time=t0)
+    mgr.process_frame_detections(det_1, w, h, current_time=t0 + 0.8)
+    bridge.sync_zone_states(mgr.zones)
+    assert bridge.relay_states["1"] is False
+
+    # Now raise 2 hands
+    kpts_2hands = make_keypoints_for_zone(z2_pos[0], z2_pos[1], left_up=True, right_up=True)
+    det_2 = [{"tracking_id": 1, "bbox": (z2_pos[0]-40, z2_pos[1]-150, z2_pos[0]+40, z2_pos[1]), "keypoints": kpts_2hands}]
+    mgr.process_frame_detections(det_2, w, h, current_time=t0 + 1.0)
+    mgr.process_frame_detections(det_2, w, h, current_time=t0 + 1.85)
+    bridge.sync_zone_states(mgr.zones)
+
+    # Overrides to MANUAL_ON!
+    assert mgr.zones["Z2"].mode == "MANUAL_ON"
+    assert mgr.zones["Z2"].light_state is True
+    assert bridge.relay_states["1"] is True  # Relay 1 turned ON!
+
+
+def test_6_and_7_multi_person_independence_and_no_cross_zone(lab_env):
+    """
+    Scenario 6 & 7:
+    Person 1 in Z2 raises 1 hand -> Relay 1 OFF
+    Person 2 in Z8 raises 2 hands -> Relay 2 ON
+    Both operate simultaneously and independently.
+    Gesture in Z2 NEVER affects Relay 2 / Z8!
+    """
+    _, mgr, bridge, w, h, z2_pos, z8_pos = lab_env
+    kpts_p1 = make_keypoints_for_zone(z2_pos[0], z2_pos[1], left_up=True, right_up=False)
+    kpts_p2 = make_keypoints_for_zone(z8_pos[0], z8_pos[1], left_up=True, right_up=True)
+
+    detections = [
+        {"tracking_id": 1, "bbox": (z2_pos[0]-40, z2_pos[1]-150, z2_pos[0]+40, z2_pos[1]), "keypoints": kpts_p1},
+        {"tracking_id": 2, "bbox": (z8_pos[0]-40, z8_pos[1]-150, z8_pos[0]+40, z8_pos[1]), "keypoints": kpts_p2}
+    ]
+
+    t0 = 50.0
+    mgr.process_frame_detections(detections, w, h, current_time=t0)
+    mgr.process_frame_detections(detections, w, h, current_time=t0 + 0.8)
+    bridge.sync_zone_states(mgr.zones)
+
+    # Z2 (Person 1, 1 hand): MANUAL_OFF -> Relay 1 is OFF
+    assert mgr.zones["Z2"].mode == "MANUAL_OFF"
+    assert bridge.relay_states["1"] is False
+
+    # Z8 (Person 2, 2 hands): MANUAL_ON -> Relay 2 is ON
+    assert mgr.zones["Z8"].mode == "MANUAL_ON"
+    assert bridge.relay_states["2"] is True
+
+    # Now Person 1 in Z2 lowers their hand to 0
+    kpts_p1_down = make_keypoints_for_zone(z2_pos[0], z2_pos[1], left_up=False, right_up=False)
+    detections_mod = [
+        {"tracking_id": 1, "bbox": (z2_pos[0]-40, z2_pos[1]-150, z2_pos[0]+40, z2_pos[1]), "keypoints": kpts_p1_down},
+        {"tracking_id": 2, "bbox": (z8_pos[0]-40, z8_pos[1]-150, z8_pos[0]+40, z8_pos[1]), "keypoints": kpts_p2}
+    ]
+    mgr.process_frame_detections(detections_mod, w, h, current_time=t0 + 2.0)
+    bridge.sync_zone_states(mgr.zones)
+
+    # Relay 1 remains OFF, Relay 2 remains ON!
+    assert bridge.relay_states["1"] is False
+    assert bridge.relay_states["2"] is True
+
+
+def test_8_moving_between_zones_updates_control_correctly(lab_env):
+    """
+    Scenario 8:
+    Person 1 in Z2 sets MANUAL_OFF (Relay 1 OFF).
+    Person 1 walks to Z8.
+    - Manual state does NOT follow: Person enters Z8 in AUTO -> Relay 2 turns ON.
+    - Z2 is now empty -> after 2.5s timeout, Z2 resets to EMPTY, OFF, AUTO.
+    """
+    _, mgr, bridge, w, h, z2_pos, z8_pos = lab_env
+    kpts_p1_z2 = make_keypoints_for_zone(z2_pos[0], z2_pos[1], left_up=True, right_up=False)
+    det_z2 = [{"tracking_id": 1, "bbox": (z2_pos[0]-40, z2_pos[1]-150, z2_pos[0]+40, z2_pos[1]), "keypoints": kpts_p1_z2}]
+
+    t0 = 60.0
+    # Person in Z2 sets MANUAL_OFF
+    mgr.process_frame_detections(det_z2, w, h, current_time=t0)
+    mgr.process_frame_detections(det_z2, w, h, current_time=t0 + 0.8)
+    bridge.sync_zone_states(mgr.zones)
+    assert bridge.relay_states["1"] is False
+    assert bridge.relay_states["2"] is False
+
+    # Person remains in Z2 until t = 62.0
+    mgr.process_frame_detections(det_z2, w, h, current_time=t0 + 2.0)
+
+    # Person 1 walks to Z8 at t = 63.0 (with hands down)
+    kpts_p1_z8 = make_keypoints_for_zone(z8_pos[0], z8_pos[1], left_up=False, right_up=False)
+    det_z8 = [{"tracking_id": 1, "bbox": (z8_pos[0]-40, z8_pos[1]-150, z8_pos[0]+40, z8_pos[1]), "keypoints": kpts_p1_z8}]
+
+    mgr.process_frame_detections(det_z8, w, h, current_time=t0 + 3.0)
+    bridge.sync_zone_states(mgr.zones)
+
+    # Person is in Z8 in AUTO -> Relay 2 (Light 2) turns ON!
+    assert mgr.zones["Z8"].occupied is True
+    assert mgr.zones["Z8"].mode == "AUTO"
+    assert bridge.relay_states["2"] is True
+
+    # Z2 grace period check at t = 63.5 (1.5s after departure < 2.5s)
+    assert mgr.zones["Z2"].occupied is True
+
+    # After timeout at t = 65.0 (3.0s after departure >= 2.5s)
+    mgr.process_frame_detections(det_z8, w, h, current_time=t0 + 5.0)
+    bridge.sync_zone_states(mgr.zones)
+
+    # Z2 is now completely reset to EMPTY & AUTO
+    assert mgr.zones["Z2"].occupied is False
+    assert mgr.zones["Z2"].mode == "AUTO"
+    assert bridge.relay_states["1"] is False
+
+    # Z8 remains active ON
+    assert bridge.relay_states["2"] is True

@@ -1,0 +1,99 @@
+{
+  "grid": {
+    "rows": 3,
+    "cols": 3,
+    "calibration_mode": "uniform_3x3"
+  },
+  "zones": [
+    {
+      "id": "Z1",
+      "row": 0,
+      "col": 0,
+      "name": "Workstation Area 1",
+      "appliances": {
+        "light": { "id": "L1", "relay_id": 1, "gpio": 22, "type": "relay" },
+        "fan": { "id": "F1", "relay_id": 2, "gpio": 23, "dimmer_channel": 1, "type": "dimmer" }
+      }
+    },
+    {
+      "id": "Z2",
+      "row": 0,
+      "col": 1,
+      "name": "Workstation Area 2",
+      "appliances": {
+        "light": { "id": "L2", "relay_id": 3, "gpio": null, "type": "relay" },
+        "fan": { "id": "F2", "relay_id": 4, "gpio": null, "dimmer_channel": 2, "type": "dimmer" }
+      }
+    },
+    {
+      "id": "Z3",
+      "row": 0,
+      "col": 2,
+      "name": "Equipment Bench 1",
+      "appliances": {
+        "light": { "id": "L3", "relay_id": 5, "gpio": null, "type": "relay" },
+        "fan": { "id": "F3", "relay_id": 6, "gpio": null, "dimmer_channel": 3, "type": "dimmer" }
+      }
+    },
+    {
+      "id": "Z4",
+      "row": 1,
+      "col": 0,
+      "name": "Component Storage",
+      "appliances": {
+        "light": { "id": "L4", "relay_id": 7, "gpio": null, "type": "relay" },
+        "fan": { "id": "F4", "relay_id": 8, "gpio": null, "dimmer_channel": 4, "type": "dimmer" }
+      }
+    },
+    {
+      "id": "Z5",
+      "row": 1,
+      "col": 1,
+      "name": "Central Assembly Lab",
+      "appliances": {
+        "light": { "id": "L5", "relay_id": 9, "gpio": null, "type": "relay" },
+        "fan": { "id": "F5", "relay_id": 10, "gpio": null, "dimmer_channel": 5, "type": "dimmer" }
+      }
+    },
+    {
+      "id": "Z6",
+      "row": 1,
+      "col": 2,
+      "name": "Testing & QA Station",
+      "appliances": {
+        "light": { "id": "L6", "relay_id": 11, "gpio": null, "type": "relay" },
+        "fan": { "id": "F6", "relay_id": 12, "gpio": null, "dimmer_channel": 6, "type": "dimmer" }
+      }
+    },
+    {
+      "id": "Z7",
+      "row": 2,
+      "col": 0,
+      "name": "Soldering Bay",
+      "appliances": {
+        "light": { "id": "L7", "relay_id": 13, "gpio": null, "type": "relay" },
+        "fan": { "id": "F7", "relay_id": 14, "gpio": null, "dimmer_channel": 7, "type": "dimmer" }
+      }
+    },
+    {
+      "id": "Z8",
+      "row": 2,
+      "col": 1,
+      "name": "Inspection Area",
+      "appliances": {
+        "light": { "id": "L8", "relay_id": 15, "gpio": null, "type": "relay" },
+        "fan": { "id": "F8", "relay_id": 16, "gpio": null, "dimmer_channel": 8, "type": "dimmer" }
+      }
+    },
+    {
+      "id": "Z9",
+      "row": 2,
+      "col": 2,
+      "name": "Lab Entry & Exit",
+      "appliances": {
+        "light": { "id": "L9", "relay_id": 17, "gpio": null, "type": "relay" },
+        "fan": { "id": "F9", "relay_id": 18, "gpio": null, "dimmer_channel": 9, "type": "dimmer" }
+      }
+    }
+  ]
+}

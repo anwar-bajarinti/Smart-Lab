@@ -1,0 +1,49 @@
+{
+  "system": {
+    "name": "SMART LAB AUTOMATION SYSTEM",
+    "version": "1.0.0",
+    "environment": "development",
+    "simulation_mode": true
+  },
+  "camera": {
+    "device_index": 0,
+    "width": 1280,
+    "height": 720,
+    "fps": 30,
+    "mirror": true,
+    "backend_api": "CAP_DSHOW"
+  },
+  "vision": {
+    "detector_type": "yolo_pose",
+    "model_path": "yolov8n-pose.pt",
+    "confidence_threshold": 0.5,
+    "iou_threshold": 0.45,
+    "device": "cpu",
+    "tracking": {
+      "tracker_type": "bytetrack",
+      "track_thresh": 0.5,
+      "track_buffer": 30,
+      "match_thresh": 0.8
+    },
+    "gesture": {
+      "stability_duration_sec": 0.8,
+      "wrist_shoulder_vertical_ratio": 0.05,
+      "elbow_flex_angle_min": 20.0,
+      "keypoint_confidence_min": 0.4
+    },
+    "occupancy": {
+      "leave_timeout_sec": 2.5
+    }
+  },
+  "backend": {
+    "host": "0.0.0.0",
+    "port": 5000,
+    "cors_allowed_origins": ["*"]
+  },
+  "esp32": {
+    "host": "192.168.1.150",
+    "port": 80,
+    "timeout_sec": 2.0,
+    "mock_hardware": true
+  }
+}
