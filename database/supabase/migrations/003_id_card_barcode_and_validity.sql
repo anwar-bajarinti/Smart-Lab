@@ -1,0 +1,8 @@
+-- ==============================================================================
+-- 003_id_card_barcode_and_validity.sql (CANCELLED / DEPRECATED)
+--
+-- NOTE: The ID-card validity column and deletion requirement has been cancelled.
+-- The physical college ID card barcode contains ONLY the student's Roll Number.
+-- No new database columns or migrations are required.
+-- DO NOT EXECUTE.
+-- ==============================================================================
