@@ -1,14 +1,35 @@
-# Smart Lab — Testing Guide
+## 1. The ONE Command to START and RUN the COMPLETE System
 
-## The ONE Command Full System Test
+When entering the lab to run and operate the live Smart Lab:
 
-Run this **single command** from PowerShell in the project directory:
+```powershell
+python run_smart_lab.py
+```
+
+This single command starts everything together:
+- Laptop Webcam (Single-capture DirectShow)
+- YOLOv8 Person Detection & ByteTrack Persistent Tracking
+- 3×3 Zone Localization & Biomechanical Gestures (0/1/2 hands)
+- Real-Time 10-Second Vacancy Delay Automation
+- Real ESP32 Relay Switching on `COM4` (GPIO 22 → Light 1 / Z2, GPIO 23 → Light 2 / Z8)
+- Real PZEM-004T AC Electrical Telemetry
+- Flask Master API (`http://localhost:5000/api/lab/status`)
+- Clean Raw CCTV Stream (`http://localhost:5000/api/cctv/stream`)
+- Local Diagnostic Dashboard (`http://localhost:5000`)
+
+To stop safely: press **`Ctrl+C`** or **`'q'`** in the video window. Both relays are unconditionally switched **OFF**.
+
+---
+
+## 2. The ONE Command Full System Test
+
+To verify all system components, logic, and hardware before deployment:
 
 ```powershell
 python run_full_test.py
 ```
 
-*(Alternatively, you can run the PowerShell wrapper: `.\run_full_test.ps1`)*
+*(Alternatively: `.\run_full_test.ps1`)*
 
 ---
 

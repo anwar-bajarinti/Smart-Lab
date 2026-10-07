@@ -55,6 +55,7 @@ Flask Master Backend & Clean CCTV Video Distributor (Port 5000)
 9. **Unified Master Status API**: Real-time snapshot at `/api/lab/status` delivering camera state, people tracking, 3×3 zone states with vacancy timers, appliance states, ESP32 connection, and PZEM metrics.
 10. **Two-Page Test Dashboard**: Clean local UI featuring Page 1 (Live CCTV Stream) and Page 2 (Smart Lab Monitoring & 3×3 Grid).
 11. **One-Command Automated Verification**: Unified runner (`python run_full_test.py` or `.\run_full_test.ps1`) executing all 12 system verification stages.
+12. **One-Command Master Live System Runner**: Single entrypoint (`python run_smart_lab.py`) coordinating webcam, YOLOv8 pose, ByteTrack, 3×3 zones, 10s vacancy delay, ESP32 relays (COM4), PZEM telemetry, Flask REST API, clean CCTV MJPEG distributor, and local dashboard with unconditional safety shutdown.
 
 ---
 
@@ -292,6 +293,7 @@ SMART LAB AUTOMATION — COMPLETE SYSTEM VERIFICATION
 - `tests/test_priority.py`: Updated inter-zone transition assertions during vacancy grace period.
 - `tests/test_new_cctv_and_lab_api.py`: Added master status vacancy delay schema tests.
 - `API_DOCUMENTATION.md`: Documented vacancy delay behavior and API response format.
+- `run_smart_lab.py`: Master live system orchestrator and one-command runner.
 - `run_full_test.py`: Created unified 12-stage system verification runner.
 - `run_full_test.ps1`: Created single-command PowerShell wrapper.
 - `PROJECT_STATUS.md`: Created permanent project memory and handoff file.

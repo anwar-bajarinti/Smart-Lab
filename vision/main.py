@@ -110,7 +110,7 @@ def main():
     print(f"   -> Energy Telemetry  : http://localhost:{args.api_port}/api/energy")
     print(f"   -> Local Dashboard   : http://localhost:{args.api_port}/")
     print(" Gestures           :")
-    print("   * 0 Hands : AUTO (Enter zone -> Light ON, Leave -> 2.5s delay -> OFF)")
+    print("   * 0 Hands : AUTO (Enter zone -> Light ON, Leave -> 10.0s delay -> OFF)")
     print("   * 1 Hand  : MANUAL_OFF (Light OFF, remains OFF while standing)")
     print("   * 2 Hands : MANUAL_ON (Overrides to Light ON)")
     print(" Controls: Press 'q' or 'ESC' to exit. Press 'm' to mirror camera.")
