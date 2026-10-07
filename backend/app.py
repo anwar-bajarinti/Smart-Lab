@@ -13,10 +13,13 @@ from flask import Flask, jsonify, send_from_directory, request
 from backend.services.esp32_client import ESP32Client
 from backend.services.zone_service import ZoneService
 from backend.services.energy_service import EnergyService
+from backend.services.lab_service import LabService
 from backend.routes.zones import zones_bp
 from backend.routes.status import status_bp
 from backend.routes.energy import energy_bp
 from backend.routes.vision import vision_bp
+from backend.routes.cctv import cctv_bp
+from backend.routes.lab import lab_bp
 
 
 def load_config(config_path: str = "config/system_config.json") -> dict:
@@ -48,12 +51,14 @@ def create_app(config_path: str = "config/system_config.json", zones_path: str =
         mock_hardware=mock_hw
     )
     zone_service = ZoneService(zones_config_path=zones_path, esp32_client=esp32_client)
-    energy_service = EnergyService(esp32_client=esp32_client)
+    lab_service = LabService(zone_service=zone_service, esp32_client=esp32_client)
+    energy_service = EnergyService(esp32_client=esp32_client, lab_service=lab_service)
 
     # Store in app config for blueprint access
     app.config["ZONE_SERVICE"] = zone_service
     app.config["ESP32_CLIENT"] = esp32_client
     app.config["ENERGY_SERVICE"] = energy_service
+    app.config["LAB_SERVICE"] = lab_service
     app.config["SYSTEM_CONFIG"] = sys_cfg
 
     # Register blueprints
@@ -61,6 +66,8 @@ def create_app(config_path: str = "config/system_config.json", zones_path: str =
     app.register_blueprint(status_bp)
     app.register_blueprint(energy_bp)
     app.register_blueprint(vision_bp)
+    app.register_blueprint(cctv_bp)
+    app.register_blueprint(lab_bp)
 
     # Enable CORS for all incoming requests
     @app.after_request

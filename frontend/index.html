@@ -3,22 +3,26 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Smart Lab Automation System</title>
+  <title>Smart Lab Automation — Local Dashboard & API Testing</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg-dark: #0f1115;
-      --bg-card: #181b21;
-      --bg-card-hover: #21252d;
-      --border-color: #2b313d;
-      --text-main: #f0f3f6;
-      --text-muted: #8b949e;
+      --bg-dark: #0b0d11;
+      --bg-card: #151820;
+      --bg-card-hover: #1c212b;
+      --border-color: #272d3b;
+      --text-main: #f3f4f6;
+      --text-muted: #9ca3af;
       --primary: #3b82f6;
+      --primary-glow: rgba(59, 130, 246, 0.25);
       --success: #10b981;
+      --success-glow: rgba(16, 185, 129, 0.25);
       --warning: #f59e0b;
+      --warning-glow: rgba(245, 158, 11, 0.25);
       --danger: #ef4444;
       --cyan: #06b6d4;
+      --purple: #8b5cf6;
     }
 
     * {
@@ -36,10 +40,11 @@
       flex-direction: column;
     }
 
+    /* Top Navigation Bar */
     header {
-      background: #14171d;
+      background: #11141a;
       border-bottom: 1px solid var(--border-color);
-      padding: 16px 32px;
+      padding: 14px 28px;
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -55,20 +60,21 @@
     }
 
     .brand-icon {
-      width: 36px;
-      height: 36px;
+      width: 40px;
+      height: 40px;
       background: linear-gradient(135deg, #3b82f6, #06b6d4);
-      border-radius: 8px;
+      border-radius: 10px;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-weight: 700;
-      font-size: 18px;
+      font-weight: 800;
+      font-size: 20px;
       color: #fff;
+      box-shadow: 0 0 15px var(--primary-glow);
     }
 
     .brand-text h1 {
-      font-size: 18px;
+      font-size: 16px;
       font-weight: 700;
       letter-spacing: 0.5px;
     }
@@ -78,10 +84,47 @@
       color: var(--text-muted);
     }
 
+    /* Tab Navigation */
+    .nav-tabs {
+      display: flex;
+      align-items: center;
+      background: #1a1e27;
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 4px;
+      gap: 4px;
+    }
+
+    .tab-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      padding: 8px 18px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s ease;
+    }
+
+    .tab-btn:hover {
+      color: var(--text-main);
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .tab-btn.active {
+      background: var(--primary);
+      color: #ffffff;
+      box-shadow: 0 2px 8px var(--primary-glow);
+    }
+
     .header-pills {
       display: flex;
       align-items: center;
-      gap: 14px;
+      gap: 12px;
     }
 
     .badge {
@@ -101,726 +144,873 @@
       border: 1px solid rgba(16, 185, 129, 0.3);
     }
 
-    .badge-sim {
-      background: rgba(245, 158, 11, 0.15);
-      color: var(--warning);
-      border: 1px solid rgba(245, 158, 11, 0.3);
+    .badge-offline {
+      background: rgba(239, 68, 68, 0.15);
+      color: var(--danger);
+      border: 1px solid rgba(239, 68, 68, 0.3);
     }
 
-    .dot {
-      width: 8px;
-      height: 8px;
+    .badge-dot {
+      width: 7px;
+      height: 7px;
       border-radius: 50%;
-      background-color: currentColor;
+      background: currentColor;
+      box-shadow: 0 0 6px currentColor;
     }
 
-    .dot.pulse {
-      animation: pulse 1.8s infinite;
-    }
-
-    @keyframes pulse {
-      0% { transform: scale(0.95); opacity: 0.8; }
-      50% { transform: scale(1.3); opacity: 1; }
-      100% { transform: scale(0.95); opacity: 0.8; }
-    }
-
-    nav {
-      background: #12141a;
-      border-bottom: 1px solid var(--border-color);
-      padding: 0 32px;
-      display: flex;
-      gap: 24px;
-    }
-
-    .tab-btn {
-      background: none;
-      border: none;
-      color: var(--text-muted);
-      font-size: 14px;
-      font-weight: 600;
-      padding: 14px 4px;
-      cursor: pointer;
-      position: relative;
-      transition: color 0.2s;
-    }
-
-    .tab-btn:hover {
-      color: var(--text-main);
-    }
-
-    .tab-btn.active {
-      color: var(--primary);
-    }
-
-    .tab-btn.active::after {
-      content: '';
-      position: absolute;
-      bottom: -1px;
-      left: 0;
-      right: 0;
-      height: 3px;
-      background: var(--primary);
-      border-radius: 3px 3px 0 0;
-    }
-
+    /* Main Container */
     main {
       flex: 1;
-      padding: 28px 32px;
+      padding: 24px;
       max-width: 1400px;
       margin: 0 auto;
       width: 100%;
     }
 
-    /* Summary Bar */
-    .summary-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 16px;
-      margin-bottom: 28px;
+    .page-section {
+      display: none;
     }
 
-    .summary-card {
-      background: var(--bg-card);
-      border: 1px solid var(--border-color);
-      border-radius: 12px;
-      padding: 18px 20px;
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
+    .page-section.active {
+      display: block;
     }
 
-    .summary-title {
-      font-size: 13px;
-      color: var(--text-muted);
-      font-weight: 500;
-    }
-
-    .summary-value {
-      font-size: 26px;
-      font-weight: 700;
-      font-family: 'JetBrains Mono', monospace;
-    }
-
-    /* 9-Zone Grid */
-    .zones-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 20px;
-    }
-
-    @media (max-width: 1024px) {
-      .zones-grid { grid-template-columns: repeat(2, 1fr); }
-    }
-    @media (max-width: 680px) {
-      .zones-grid { grid-template-columns: 1fr; }
-    }
-
-    .zone-card {
+    /* =====================================================================
+       PAGE 1: LIVE CCTV STREAM
+       ===================================================================== */
+    .cctv-card {
       background: var(--bg-card);
       border: 1px solid var(--border-color);
       border-radius: 14px;
-      padding: 20px;
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-      transition: transform 0.15s, border-color 0.15s;
-      position: relative;
       overflow: hidden;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
     }
 
-    .zone-card:hover {
-      border-color: #3f4756;
-      background: var(--bg-card-hover);
-    }
-
-    .zone-card.occupied {
-      border-color: rgba(16, 185, 129, 0.4);
-      box-shadow: 0 4px 20px rgba(16, 185, 129, 0.08);
-    }
-
-    .zone-card-header {
+    .cctv-header {
+      padding: 16px 24px;
+      background: #191c24;
+      border-bottom: 1px solid var(--border-color);
       display: flex;
       justify-content: space-between;
-      align-items: flex-start;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
     }
 
-    .zone-title h3 {
-      font-size: 18px;
+    .cctv-title-group h2 {
+      font-size: 16px;
       font-weight: 700;
-      font-family: 'JetBrains Mono', monospace;
-      color: var(--text-main);
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 10px;
     }
 
-    .zone-title p {
+    .cctv-title-group p {
       font-size: 12px;
       color: var(--text-muted);
       margin-top: 2px;
     }
 
-    .zone-badges {
+    .cctv-actions {
       display: flex;
-      flex-direction: column;
-      align-items: flex-end;
-      gap: 6px;
-    }
-
-    .pill-occ {
-      font-size: 11px;
-      font-weight: 600;
-      padding: 3px 8px;
-      border-radius: 12px;
-      text-transform: uppercase;
-      font-family: 'JetBrains Mono', monospace;
-    }
-
-    .pill-occ.occupied {
-      background: rgba(16, 185, 129, 0.2);
-      color: var(--success);
-      border: 1px solid rgba(16, 185, 129, 0.4);
-    }
-
-    .pill-occ.empty {
-      background: rgba(139, 148, 158, 0.15);
-      color: var(--text-muted);
-      border: 1px solid rgba(139, 148, 158, 0.3);
-    }
-
-    .pill-mode {
-      font-size: 10px;
-      font-weight: 600;
-      padding: 2px 7px;
-      border-radius: 8px;
-      font-family: 'JetBrains Mono', monospace;
-    }
-
-    .mode-auto { background: rgba(59, 130, 246, 0.18); color: var(--primary); }
-    .mode-manual_on { background: rgba(245, 158, 11, 0.2); color: var(--warning); }
-    .mode-manual_off { background: rgba(239, 68, 68, 0.2); color: var(--danger); }
-
-    .control-row {
-      display: flex;
-      justify-content: space-between;
       align-items: center;
-      background: #12151b;
-      padding: 12px 14px;
-      border-radius: 8px;
-      border: 1px solid rgba(255, 255, 255, 0.04);
+      gap: 12px;
     }
 
-    .control-label {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-    }
-
-    .control-label span:first-child {
-      font-size: 13px;
-      font-weight: 600;
-    }
-
-    .control-label span:last-child {
-      font-size: 11px;
-      color: var(--text-muted);
-    }
-
-    .btn-toggle {
-      padding: 8px 16px;
-      font-size: 12px;
-      font-weight: 700;
-      border-radius: 6px;
-      border: none;
-      cursor: pointer;
-      font-family: 'JetBrains Mono', monospace;
-      transition: all 0.15s;
-    }
-
-    .btn-toggle.on {
-      background: var(--success);
-      color: #000;
-    }
-
-    .btn-toggle.off {
-      background: #2a2f3b;
-      color: var(--text-muted);
-    }
-
-    .btn-toggle:hover {
-      opacity: 0.9;
-    }
-
-    .slider-row {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      background: #12151b;
-      padding: 12px 14px;
-      border-radius: 8px;
-      border: 1px solid rgba(255, 255, 255, 0.04);
-    }
-
-    .slider-header {
-      display: flex;
-      justify-content: space-between;
-      font-size: 12px;
-    }
-
-    .slider-input {
-      width: 100%;
-      accent-color: var(--cyan);
-      cursor: pointer;
-    }
-
-    /* Vision Monitor View */
-    .vision-container {
-      display: grid;
-      grid-template-columns: 2fr 1fr;
-      gap: 24px;
-    }
-
-    @media (max-width: 900px) {
-      .vision-container { grid-template-columns: 1fr; }
-    }
-
-    .video-card {
-      background: var(--bg-card);
+    .api-pill {
+      background: #0f1217;
       border: 1px solid var(--border-color);
-      border-radius: 14px;
-      padding: 20px;
+      padding: 6px 14px;
+      border-radius: 8px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      color: var(--cyan);
       display: flex;
-      flex-direction: column;
-      gap: 14px;
+      align-items: center;
+      gap: 8px;
     }
 
-    .video-wrapper {
+    .copy-btn {
+      background: rgba(59, 130, 246, 0.15);
+      border: 1px solid rgba(59, 130, 246, 0.4);
+      color: var(--primary);
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .copy-btn:hover {
+      background: var(--primary);
+      color: #fff;
+    }
+
+    .cctv-viewport {
       position: relative;
-      background: #000;
-      border-radius: 10px;
-      overflow: hidden;
-      aspect-ratio: 16 / 9;
+      background: #050608;
       display: flex;
       align-items: center;
       justify-content: center;
+      min-height: 540px;
+      max-height: 720px;
+      overflow: hidden;
     }
 
-    .video-wrapper img {
+    .cctv-viewport img {
       width: 100%;
-      height: 100%;
+      height: auto;
+      max-height: 700px;
       object-fit: contain;
+      display: block;
     }
 
-    .people-card {
+    .cctv-osd-top {
+      position: absolute;
+      top: 14px;
+      left: 18px;
+      right: 18px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      pointer-events: none;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+    }
+
+    .cctv-osd-badge {
+      background: rgba(0, 0, 0, 0.65);
+      padding: 4px 10px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+    }
+
+    .cctv-footer {
+      padding: 16px 24px;
+      background: #14171e;
+      border-top: 1px solid var(--border-color);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    /* =====================================================================
+       PAGE 2: SMART LAB MONITORING
+       ===================================================================== */
+    .stats-bar {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .stat-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 16px 20px;
+    }
+
+    .stat-label {
+      font-size: 12px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+    }
+
+    .stat-value {
+      font-size: 26px;
+      font-weight: 700;
+      font-family: 'JetBrains Mono', monospace;
+      margin-top: 4px;
+    }
+
+    .grid-and-side {
+      display: grid;
+      grid-template-columns: 1.15fr 0.85fr;
+      gap: 24px;
+    }
+
+    @media (max-width: 1024px) {
+      .grid-and-side {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* 3x3 Laboratory Grid */
+    .section-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 14px;
+      padding: 22px;
+    }
+
+    .section-title {
+      font-size: 15px;
+      font-weight: 700;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .zones-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+    }
+
+    .zone-cell {
+      background: #11141b;
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      min-height: 130px;
+      transition: all 0.25s ease;
+      position: relative;
+    }
+
+    .zone-cell.occupied {
+      border-color: var(--cyan);
+      box-shadow: 0 0 12px rgba(6, 182, 212, 0.15);
+      background: #121924;
+    }
+
+    .zone-cell.light-on {
+      border-color: var(--warning);
+      box-shadow: 0 0 14px var(--warning-glow);
+    }
+
+    .zone-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .zone-id {
+      font-size: 15px;
+      font-weight: 700;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .zone-occ-badge {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 10px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .occ-empty {
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text-muted);
+    }
+
+    .occ-occupied {
+      background: rgba(6, 182, 212, 0.2);
+      color: var(--cyan);
+      border: 1px solid rgba(6, 182, 212, 0.4);
+    }
+
+    .zone-device {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin: 8px 0;
+    }
+
+    .zone-bottom {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-top: 8px;
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .light-status {
+      font-size: 12px;
+      font-weight: 700;
+      font-family: 'JetBrains Mono', monospace;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .light-on-text {
+      color: var(--warning);
+    }
+
+    .light-off-text {
+      color: var(--text-muted);
+    }
+
+    .mode-pill {
+      font-size: 10px;
+      font-weight: 600;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: #1e2430;
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .mode-pill.auto {
+      color: var(--primary);
+      background: rgba(59, 130, 246, 0.15);
+    }
+
+    .mode-pill.manual-off {
+      color: var(--danger);
+      background: rgba(239, 68, 68, 0.15);
+    }
+
+    .mode-pill.manual-on {
+      color: var(--purple);
+      background: rgba(139, 92, 246, 0.15);
+    }
+
+    /* Side Cards */
+    .side-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .hardware-card {
       background: var(--bg-card);
       border: 1px solid var(--border-color);
       border-radius: 14px;
       padding: 20px;
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
     }
 
-    .person-item {
-      background: #12151b;
-      border: 1px solid var(--border-color);
-      border-radius: 8px;
-      padding: 12px;
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-
-    .person-item-header {
+    .relay-item {
       display: flex;
       justify-content: space-between;
-      font-weight: 700;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 13px;
-    }
-
-    /* Energy Tab */
-    .energy-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: 20px;
-    }
-
-    .energy-card {
-      background: var(--bg-card);
+      align-items: center;
+      padding: 12px 14px;
+      background: #11141b;
       border: 1px solid var(--border-color);
-      border-radius: 14px;
-      padding: 24px;
+      border-radius: 8px;
+      margin-top: 10px;
+    }
+
+    .relay-label {
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .relay-sub {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    /* PZEM Energy Card */
+    .pzem-callout {
+      background: rgba(59, 130, 246, 0.08);
+      border: 1px solid rgba(59, 130, 246, 0.25);
+      border-radius: 8px;
+      padding: 10px 14px;
+      margin-bottom: 14px;
       display: flex;
-      flex-direction: column;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+    }
+
+    .pzem-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
       gap: 10px;
     }
 
-    .energy-metric-value {
-      font-size: 34px;
+    .pzem-metric {
+      background: #11141b;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 12px;
+      text-align: center;
+    }
+
+    .pzem-metric-val {
+      font-size: 18px;
       font-weight: 700;
       font-family: 'JetBrains Mono', monospace;
-      color: var(--primary);
+      color: var(--cyan);
+      margin-top: 4px;
     }
 
-    .instructions-box {
+    .pzem-metric-unit {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    /* JSON Inspector */
+    .json-card {
       margin-top: 24px;
-      background: rgba(59, 130, 246, 0.08);
-      border: 1px solid rgba(59, 130, 246, 0.25);
-      border-radius: 10px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
       padding: 16px 20px;
-      font-size: 13px;
-      line-height: 1.6;
     }
 
-    .tab-content { display: none; }
-    .tab-content.active { display: block; }
+    .json-box {
+      background: #0c0e13;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 14px;
+      max-height: 240px;
+      overflow-y: auto;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      color: #93c5fd;
+      white-space: pre-wrap;
+    }
   </style>
 </head>
 <body>
 
-  <!-- Header -->
+  <!-- Top Header Navigation -->
   <header>
     <div class="brand">
-      <div class="brand-icon">SL</div>
+      <div class="brand-icon">⚡</div>
       <div class="brand-text">
         <h1>SMART LAB AUTOMATION</h1>
-        <p>Vision-Guided 9-Zone Autonomous Environment System</p>
+        <p>Vision Automation & Hardware API Test Dashboard</p>
       </div>
     </div>
+
+    <!-- Navigation Tabs for Testing -->
+    <div class="nav-tabs">
+      <button class="tab-btn active" id="tabBtnCctv" onclick="switchPage('cctv')">
+        <span>📹</span>
+        <span>PAGE 1 — LIVE CCTV</span>
+      </button>
+      <button class="tab-btn" id="tabBtnMonitoring" onclick="switchPage('monitoring')">
+        <span>📊</span>
+        <span>PAGE 2 — SMART LAB MONITORING</span>
+      </button>
+    </div>
+
     <div class="header-pills">
-      <div id="hw-pill" class="badge badge-sim">
-        <span class="dot"></span>
-        <span id="hw-text">DEV / SIMULATION MODE</span>
+      <div id="cameraStatusPill" class="badge badge-online">
+        <span class="badge-dot"></span>
+        <span id="cameraStatusText">CAMERA ONLINE</span>
       </div>
-      <div class="badge badge-online">
-        <span class="dot pulse"></span>
-        <span id="api-status">API CONNECTED</span>
+      <div id="esp32StatusPill" class="badge badge-online">
+        <span class="badge-dot"></span>
+        <span id="esp32StatusText">ESP32 READY</span>
       </div>
+      <a href="/api/lab/status" target="_blank" class="api-pill" style="text-decoration:none;">
+        <span>API ROOT</span> ↗
+      </a>
     </div>
   </header>
 
-  <!-- Navigation -->
-  <nav>
-    <button class="tab-btn active" onclick="switchTab('zones')">9-Zone Control</button>
-    <button class="tab-btn" onclick="switchTab('vision')">Vision AI Live Feed</button>
-    <button class="tab-btn" onclick="switchTab('energy')">PZEM-004T Energy Analytics</button>
-  </nav>
-
+  <!-- Main Body Content -->
   <main>
-    <!-- Telemetry Summary -->
-    <section class="summary-grid">
-      <div class="summary-card">
-        <span class="summary-title">Occupied Zones</span>
-        <span class="summary-value" id="stat-occupied">0 / 9</span>
-      </div>
-      <div class="summary-card">
-        <span class="summary-title">Active Lights</span>
-        <span class="summary-value" style="color: var(--success);" id="stat-lights">0</span>
-      </div>
-      <div class="summary-card">
-        <span class="summary-title">Active Fans</span>
-        <span class="summary-value" style="color: var(--cyan);" id="stat-fans">0</span>
-      </div>
-      <div class="summary-card">
-        <span class="summary-title">Current Power Load</span>
-        <span class="summary-value" style="color: var(--warning);" id="stat-power">0.0 W</span>
-      </div>
-      <div class="summary-card">
-        <span class="summary-title">Vision Pipeline FPS</span>
-        <span class="summary-value" id="stat-fps">--</span>
-      </div>
-    </section>
 
-    <!-- Tab 1: 9-Zone Control Grid -->
-    <section id="tab-zones" class="tab-content active">
-      <div class="zones-grid" id="zones-container">
-        <!-- Generated Dynamically via JavaScript for all 9 zones -->
-      </div>
-    </section>
+    <!-- ===================================================================
+         PAGE 1: LIVE CCTV (Clean, unannotated video stream)
+         =================================================================== -->
+    <section id="pageCctv" class="page-section active">
+      <div class="cctv-card">
+        <div class="cctv-header">
+          <div class="cctv-title-group">
+            <h2>🔴 LIVE CCTV STREAM <span style="font-size: 12px; color: var(--success); font-weight: normal; margin-left: 8px;">● RAW FEED ACTIVE</span></h2>
+            <p>Clean, unannotated video stream for security & external website integration. No grid, no boxes, no skeletons.</p>
+          </div>
 
-    <!-- Tab 2: Vision Monitoring -->
-    <section id="tab-vision" class="tab-content">
-      <div class="vision-container">
-        <div class="video-card">
-          <div style="display: flex; justify-content: space-between; align-items: center;">
-            <h3 style="font-size: 16px; font-weight: 600;">Live Camera 3x3 Vision Sensor</h3>
-            <span class="badge badge-online">ACTIVE FEED</span>
+          <div class="cctv-actions">
+            <div class="api-pill">
+              <span>GET</span>
+              <strong id="cctvEndpointUrl">/api/cctv/stream</strong>
+            </div>
+            <button class="copy-btn" onclick="copyStreamUrl()">Copy API URL</button>
           </div>
-          <div class="video-wrapper">
-            <img src="/api/vision/feed" alt="Live Vision Stream" onerror="this.src='https://placehold.co/800x450/14171d/8b949e?text=Vision+Camera+Offline+or+Not+Yet+Started'">
-          </div>
-          <p style="font-size: 12px; color: var(--text-muted);">
-            Real-time feed showing 3×3 grid, person bounding boxes, skeletal pose keypoints, foot floor tracking, and gesture recognition badges.
-          </p>
         </div>
 
-        <div class="people-card">
-          <h3 style="font-size: 16px; font-weight: 600;">Tracked People & Gestures</h3>
-          <div id="people-list" style="display: flex; flex-direction: column; gap: 10px;">
-            <p style="font-size: 13px; color: var(--text-muted);">No occupants currently detected in lab.</p>
+        <div class="cctv-viewport">
+          <div class="cctv-osd-top">
+            <div class="cctv-osd-badge">
+              <span style="color: #ef4444;">● REC</span>
+              <span>CAM 01 — SMART LAB MAIN</span>
+            </div>
+            <div class="cctv-osd-badge" id="cctvTimestamp">
+              --:--:--
+            </div>
           </div>
 
-          <div class="instructions-box">
-            <strong style="color: var(--primary);">Gesture Control Rules:</strong><br>
-            • <strong>0 Raised Hands</strong>: AUTO Mode (Lights/Fans ON while in zone, OFF 2.5s after leave).<br>
-            • <strong>1 Raised Hand</strong> (Wrist above shoulder for >0.8s): MANUAL_OFF. Remains OFF even while standing in zone.<br>
-            • <strong>2 Raised Hands</strong>: MANUAL_ON. Overrides MANUAL_OFF.
+          <!-- Clean Single-Capture CCTV Stream -->
+          <img id="cctvImg" src="/api/cctv/stream" alt="Smart Lab Clean CCTV Video Stream" />
+        </div>
+
+        <div class="cctv-footer">
+          <div>
+            <strong>Integration Note:</strong> Your friend can embed this directly in their website with:
+            <code style="background:#000; padding:2px 6px; border-radius:4px; margin-left:6px; color:#38bdf8;">
+              &lt;img src="http://&lt;IP&gt;:5000/api/cctv/stream" /&gt;
+            </code>
+          </div>
+          <div id="cctvFpsIndicator" style="font-family:'JetBrains Mono',monospace;">
+            FPS: ~30.0
           </div>
         </div>
       </div>
     </section>
 
-    <!-- Tab 3: PZEM-004T Energy Analytics -->
-    <section id="tab-energy" class="tab-content">
-      <div class="energy-grid">
-        <div class="energy-card">
-          <span class="summary-title">Mains Voltage</span>
-          <span class="energy-metric-value" id="pzem-voltage">-- V</span>
-          <span style="font-size: 12px; color: var(--text-muted);">Nominal 230V AC ± 10%</span>
+    <!-- ===================================================================
+         PAGE 2: SMART LAB MONITORING (3x3 Grid, Relays, PZEM Energy)
+         =================================================================== -->
+    <section id="pageMonitoring" class="page-section">
+
+      <!-- High-Level Metric Tiles -->
+      <div class="stats-bar">
+        <div class="stat-card">
+          <div class="stat-label">People Detected</div>
+          <div class="stat-value" id="statPeopleCount" style="color:var(--cyan);">0</div>
         </div>
-        <div class="energy-card">
-          <span class="summary-title">Load Current</span>
-          <span class="energy-metric-value" id="pzem-current">-- A</span>
-          <span style="font-size: 12px; color: var(--text-muted);">Active current draw across all zones</span>
+        <div class="stat-card">
+          <div class="stat-label">Occupied Zones</div>
+          <div class="stat-value" id="statOccupiedZones" style="color:var(--primary);">0 / 9</div>
         </div>
-        <div class="energy-card">
-          <span class="summary-title">Active Power</span>
-          <span class="energy-metric-value" style="color: var(--warning);" id="pzem-power">-- W</span>
-          <span style="font-size: 12px; color: var(--text-muted);">Real-time power consumption</span>
+        <div class="stat-card">
+          <div class="stat-label">Active Lights</div>
+          <div class="stat-value" id="statActiveLights" style="color:var(--warning);">0</div>
         </div>
-        <div class="energy-card">
-          <span class="summary-title">Cumulative Energy</span>
-          <span class="energy-metric-value" style="color: var(--success);" id="pzem-energy">-- kWh</span>
-          <span style="font-size: 12px; color: var(--text-muted);">Total energy recorded</span>
-        </div>
-        <div class="energy-card">
-          <span class="summary-title">Grid Frequency</span>
-          <span class="energy-metric-value" id="pzem-freq">-- Hz</span>
-          <span style="font-size: 12px; color: var(--text-muted);">Standard 50.0 Hz AC</span>
-        </div>
-        <div class="energy-card">
-          <span class="summary-title">Power Factor</span>
-          <span class="energy-metric-value" id="pzem-pf">--</span>
-          <span style="font-size: 12px; color: var(--text-muted);">Appliance phase displacement</span>
+        <div class="stat-card">
+          <div class="stat-label">PZEM Measured Load</div>
+          <div class="stat-value" id="statPzemPower" style="color:var(--success);">0.0 W</div>
         </div>
       </div>
 
-      <div class="instructions-box" style="margin-top: 24px;">
-        <strong style="color: var(--primary);">Hardware Pin Assignment:</strong><br>
-        PZEM-004T TX connects to ESP32 RX2 (GPIO 25) | PZEM-004T RX connects to ESP32 TX2 (GPIO 33).<br>
-        Relay 1: GPIO 22 | Relay 2: GPIO 23 | Dimmer ZVC: GPIO 27 | Dimmer DAT: GPIO 26.
+      <div class="grid-and-side">
+        <!-- 3x3 Zones Grid -->
+        <div class="section-card">
+          <div class="section-title">
+            <span>3×3 PHYSICAL LABORATORY GRID</span>
+            <span style="font-size:12px; color:var(--text-muted); font-weight:normal;">Floor-Contact Zone Mapping</span>
+          </div>
+
+          <div class="zones-grid" id="zonesContainer">
+            <!-- Rendered dynamically Z1 through Z9 -->
+          </div>
+        </div>
+
+        <!-- Hardware & Energy Side Stack -->
+        <div class="side-stack">
+
+          <!-- ESP32 Hardware Relays -->
+          <div class="hardware-card">
+            <div class="section-title">
+              <span>🔌 ESP32 RELAY CONTROLLER</span>
+              <span id="esp32ConnBadge" class="badge badge-online" style="padding:2px 8px; font-size:10px;">ONLINE</span>
+            </div>
+
+            <div class="relay-item">
+              <div>
+                <div class="relay-label">RELAY 1 (GPIO 22)</div>
+                <div class="relay-sub">Real Light 1 (Zone Z2) — Active HIGH</div>
+              </div>
+              <div id="relay1StatusBadge" class="badge badge-offline">OFF</div>
+            </div>
+
+            <div class="relay-item">
+              <div>
+                <div class="relay-label">RELAY 2 (GPIO 23)</div>
+                <div class="relay-sub">Real Light 2 (Zone Z8) — Active HIGH</div>
+              </div>
+              <div id="relay2StatusBadge" class="badge badge-offline">OFF</div>
+            </div>
+
+            <p style="font-size:11px; color:var(--text-muted); margin-top:10px;">
+              * Note: Onboard GPIO 2 LED pulses briefly for RX activity only; it is NOT an appliance.
+            </p>
+          </div>
+
+          <!-- PZEM-004T Real Energy Telemetry -->
+          <div class="hardware-card">
+            <div class="section-title">
+              <span>⚡ PZEM-004T AC ENERGY MONITOR</span>
+              <span id="pzemStatusBadge" class="badge badge-online" style="padding:2px 8px; font-size:10px;">VALID</span>
+            </div>
+
+            <div class="pzem-callout">
+              <div>
+                <strong>📍 Single CT Measurement:</strong>
+                <span id="pzemTargetDevice" style="color:var(--cyan); font-weight:700;">Light 1</span>
+              </div>
+              <div>
+                <strong>Zone:</strong>
+                <span id="pzemTargetZone" style="color:var(--warning); font-weight:700;">Z2</span>
+              </div>
+            </div>
+
+            <div class="pzem-grid">
+              <div class="pzem-metric">
+                <div class="pzem-metric-unit">VOLTAGE</div>
+                <div class="pzem-metric-val" id="pzemVoltage">--</div>
+                <div class="pzem-metric-unit">Volts (V)</div>
+              </div>
+
+              <div class="pzem-metric">
+                <div class="pzem-metric-unit">CURRENT</div>
+                <div class="pzem-metric-val" id="pzemCurrent">--</div>
+                <div class="pzem-metric-unit">Amperes (A)</div>
+              </div>
+
+              <div class="pzem-metric">
+                <div class="pzem-metric-unit">ACTIVE POWER</div>
+                <div class="pzem-metric-val" id="pzemPower" style="color:var(--warning);">--</div>
+                <div class="pzem-metric-unit">Watts (W)</div>
+              </div>
+
+              <div class="pzem-metric">
+                <div class="pzem-metric-unit">ENERGY</div>
+                <div class="pzem-metric-val" id="pzemEnergy">--</div>
+                <div class="pzem-metric-unit">kWh</div>
+              </div>
+
+              <div class="pzem-metric">
+                <div class="pzem-metric-unit">FREQUENCY</div>
+                <div class="pzem-metric-val" id="pzemFreq">--</div>
+                <div class="pzem-metric-unit">Hertz (Hz)</div>
+              </div>
+
+              <div class="pzem-metric">
+                <div class="pzem-metric-unit">POWER FACTOR</div>
+                <div class="pzem-metric-val" id="pzemPF">--</div>
+                <div class="pzem-metric-unit">PF (0 - 1.0)</div>
+              </div>
+            </div>
+          </div>
+
+        </div>
       </div>
+
+      <!-- Real-Time Master API JSON Preview -->
+      <div class="json-card">
+        <div class="section-title">
+          <span>MASTER API PAYLOAD PREVIEW [GET /api/lab/status]</span>
+          <span style="font-size:11px; color:var(--text-muted);">Real-time JSON consumed by your friend's website</span>
+        </div>
+        <div class="json-box" id="jsonViewer">Connecting to API...</div>
+      </div>
+
     </section>
+
   </main>
 
   <script>
-    let currentTab = 'zones';
+    // Tab Switching Logic
+    function switchPage(page) {
+      document.querySelectorAll('.page-section').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
 
-    function switchTab(tabId) {
-      currentTab = tabId;
-      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-
-      event.target.classList.add('active');
-      document.getElementById('tab-' + tabId).classList.add('active');
-    }
-
-    async function toggleLight(zoneId, currentState) {
-      const action = currentState ? 'off' : 'on';
-      try {
-        await fetch(`/api/zones/${zoneId}/light/${action}`, { method: 'POST' });
-        refreshData();
-      } catch (err) {
-        console.error('Failed to toggle light:', err);
-      }
-    }
-
-    async function toggleFan(zoneId, currentState) {
-      const action = currentState ? 'off' : 'on';
-      try {
-        await fetch(`/api/zones/${zoneId}/fan/${action}`, { method: 'POST' });
-        refreshData();
-      } catch (err) {
-        console.error('Failed to toggle fan:', err);
-      }
-    }
-
-    async function setFanSpeed(zoneId, speed) {
-      try {
-        await fetch(`/api/zones/${zoneId}/fan/speed`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ speed: parseInt(speed) })
-        });
-        refreshData();
-      } catch (err) {
-        console.error('Failed to set speed:', err);
-      }
-    }
-
-    async function refreshData() {
-      try {
-        // Fetch Zones
-        const resZones = await fetch('/api/zones');
-        const dataZones = await resZones.json();
-        if (dataZones.success) {
-          renderZones(dataZones.zones);
-        }
-
-        // Fetch Status & Energy
-        const resStatus = await fetch('/api/status');
-        const dataStatus = await resStatus.json();
-        if (dataStatus.success) {
-          renderSummary(dataStatus.summary);
-        }
-
-        const resEnergy = await fetch('/api/energy');
-        const dataEnergy = await resEnergy.json();
-        if (dataEnergy.success) {
-          renderEnergy(dataEnergy.metrics);
-        }
-
-        // Fetch Vision
-        const resVision = await fetch('/api/vision/status');
-        const dataVision = await resVision.json();
-        if (dataVision.success) {
-          renderVisionStatus(dataVision.data);
-        }
-
-      } catch (err) {
-        console.warn('Network sync tick error:', err);
-      }
-    }
-
-    function renderZones(zones) {
-      const container = document.getElementById('zones-container');
-      container.innerHTML = '';
-
-      zones.forEach(z => {
-        const isOccupied = z.occupied;
-        const lightOn = z.light_state === 'ON';
-        const fanOn = z.fan_state === 'ON';
-        const modeClass = 'mode-' + z.mode.toLowerCase();
-
-        const card = document.createElement('div');
-        card.className = `zone-card ${isOccupied ? 'occupied' : ''}`;
-        card.innerHTML = `
-          <div class="zone-card-header">
-            <div class="zone-title">
-              <h3>${z.zone_id}</h3>
-              <p>${z.name}</p>
-            </div>
-            <div class="zone-badges">
-              <span class="pill-occ ${isOccupied ? 'occupied' : 'empty'}">${z.occupancy_state}</span>
-              <span class="pill-mode ${modeClass}">${z.mode}</span>
-            </div>
-          </div>
-
-          <div class="control-row">
-            <div class="control-label">
-              <span>Light Appliance</span>
-              <span>State: <strong>${z.light_state}</strong></span>
-            </div>
-            <button class="btn-toggle ${lightOn ? 'on' : 'off'}" onclick="toggleLight('${z.zone_id}', ${lightOn})">
-              ${lightOn ? 'LIGHT ON' : 'LIGHT OFF'}
-            </button>
-          </div>
-
-          <div class="control-row">
-            <div class="control-label">
-              <span>Ventilation Fan</span>
-              <span>State: <strong>${z.fan_state}</strong></span>
-            </div>
-            <button class="btn-toggle ${fanOn ? 'on' : 'off'}" onclick="toggleFan('${z.zone_id}', ${fanOn})">
-              ${fanOn ? 'FAN ON' : 'FAN OFF'}
-            </button>
-          </div>
-
-          <div class="slider-row">
-            <div class="slider-header">
-              <span>Fan Speed</span>
-              <span><strong>${z.fan_speed || 0}%</strong></span>
-            </div>
-            <input type="range" class="slider-input" min="0" max="100" value="${z.fan_speed || 0}"
-                   onchange="setFanSpeed('${z.zone_id}', this.value)">
-          </div>
-
-          <div style="font-size: 11px; color: var(--text-muted); display: flex; justify-content: space-between;">
-            <span>Occupants: ${z.occupant_count}</span>
-            <span>${z.occupant_ids.length ? 'IDs: ' + z.occupant_ids.join(', ') : 'No occupants'}</span>
-          </div>
-        `;
-        container.appendChild(card);
-      });
-    }
-
-    function renderSummary(summary) {
-      if (!summary) return;
-      document.getElementById('stat-occupied').textContent = `${summary.occupied_zones} / ${summary.total_zones}`;
-      document.getElementById('stat-lights').textContent = summary.lights_active;
-      document.getElementById('stat-fans').textContent = summary.fans_active;
-
-      const hwPill = document.getElementById('hw-pill');
-      const hwText = document.getElementById('hw-text');
-      if (summary.mock_hardware_mode) {
-        hwPill.className = 'badge badge-sim';
-        hwText.textContent = 'DEV / SIMULATION MODE';
+      if (page === 'cctv') {
+        document.getElementById('pageCctv').classList.add('active');
+        document.getElementById('tabBtnCctv').classList.add('active');
       } else {
-        hwPill.className = 'badge badge-online';
-        hwText.textContent = 'REAL HARDWARE CONNECTED';
+        document.getElementById('pageMonitoring').classList.add('active');
+        document.getElementById('tabBtnMonitoring').classList.add('active');
       }
     }
 
-    function renderEnergy(metrics) {
-      if (!metrics) return;
-      document.getElementById('pzem-voltage').textContent = (metrics.voltage || 0).toFixed(1) + ' V';
-      document.getElementById('pzem-current').textContent = (metrics.current || 0).toFixed(2) + ' A';
-      document.getElementById('pzem-power').textContent = (metrics.power || 0).toFixed(1) + ' W';
-      document.getElementById('pzem-energy').textContent = (metrics.energy || 0).toFixed(2) + ' kWh';
-      document.getElementById('pzem-freq').textContent = (metrics.frequency || 0).toFixed(1) + ' Hz';
-      document.getElementById('pzem-pf').textContent = (metrics.power_factor || 0).toFixed(2);
-
-      document.getElementById('stat-power').textContent = (metrics.power || 0).toFixed(1) + ' W';
-    }
-
-    function renderVisionStatus(vision) {
-      if (!vision) return;
-      document.getElementById('stat-fps').textContent = (vision.fps || 0).toFixed(1);
-
-      const listContainer = document.getElementById('people-list');
-      const people = vision.people || [];
-
-      if (people.length === 0) {
-        listContainer.innerHTML = '<p style="font-size: 13px; color: var(--text-muted);">No occupants currently detected in lab.</p>';
-        return;
-      }
-
-      listContainer.innerHTML = '';
-      people.forEach(p => {
-        const item = document.createElement('div');
-        item.className = 'person-item';
-        item.innerHTML = `
-          <div class="person-item-header">
-            <span>Person #${p.tracking_id}</span>
-            <span style="color: var(--cyan);">${p.zone || 'Out of Bounds'}</span>
-          </div>
-          <div style="font-size: 12px; display: flex; justify-content: space-between;">
-            <span>Hands Raised: <strong>${p.raw_hand_count}</strong></span>
-            <span>Gesture: <strong>${p.gesture}</strong></span>
-          </div>
-          <div style="font-size: 12px; display: flex; justify-content: space-between;">
-            <span>Mode: <strong>${p.mode}</strong></span>
-            <span>Feet: ${p.position_source}</span>
-          </div>
-        `;
-        listContainer.appendChild(item);
+    function copyStreamUrl() {
+      const fullUrl = window.location.origin + '/api/cctv/stream';
+      navigator.clipboard.writeText(fullUrl).then(() => {
+        alert('CCTV Stream URL copied to clipboard:\n' + fullUrl);
       });
     }
 
-    // Polling interval
-    setInterval(refreshData, 1000);
-    refreshData();
+    // Build 9 Zone Cards
+    function renderZoneGrid() {
+      const container = document.getElementById('zonesContainer');
+      container.innerHTML = '';
+      for (let i = 1; i <= 9; i++) {
+        const zid = 'Z' + i;
+        const cell = document.createElement('div');
+        cell.id = 'zoneCell_' + zid;
+        cell.className = 'zone-cell';
+        cell.innerHTML = `
+          <div class="zone-top">
+            <span class="zone-id">${zid}</span>
+            <span class="zone-occ-badge occ-empty" id="occBadge_${zid}">EMPTY</span>
+          </div>
+          <div class="zone-device" id="deviceLabel_${zid}">--</div>
+          <div class="zone-bottom">
+            <span class="light-status light-off-text" id="lightText_${zid}">● OFF</span>
+            <span class="mode-pill auto" id="modePill_${zid}">AUTO</span>
+          </div>
+        `;
+        container.appendChild(cell);
+      }
+    }
+    renderZoneGrid();
+
+    // Timestamp clock in CCTV view
+    function updateClock() {
+      const now = new Date();
+      const str = now.toLocaleDateString() + ' ' + now.toTimeString().split(' ')[0];
+      const el = document.getElementById('cctvTimestamp');
+      if (el) el.innerText = str;
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    // Real-Time Polling for Automation Data
+    async function pollLabStatus() {
+      try {
+        const res = await fetch('/api/lab/status');
+        if (!res.ok) return;
+        const data = await res.json();
+
+        // Update JSON preview box
+        const jsonEl = document.getElementById('jsonViewer');
+        if (jsonEl) jsonEl.innerText = JSON.stringify(data, null, 2);
+
+        // 1. Camera Status
+        const camOnline = data.camera && data.camera.online;
+        const camPill = document.getElementById('cameraStatusPill');
+        const camText = document.getElementById('cameraStatusText');
+        if (camOnline) {
+          camPill.className = 'badge badge-online';
+          camText.innerText = 'CAMERA ONLINE';
+        } else {
+          camPill.className = 'badge badge-offline';
+          camText.innerText = 'CAMERA STANDBY';
+        }
+        if (data.camera && data.camera.fps) {
+          const fpsEl = document.getElementById('cctvFpsIndicator');
+          if (fpsEl) fpsEl.innerText = 'FPS: ~' + data.camera.fps;
+        }
+
+        // 2. High level stats
+        document.getElementById('statPeopleCount').innerText = data.people_count || 0;
+
+        let occCount = 0;
+        let activeLights = 0;
+
+        // 3. Update 9 Zones
+        if (data.zones) {
+          for (let i = 1; i <= 9; i++) {
+            const zid = 'Z' + i;
+            const z = data.zones[zid];
+            if (!z) continue;
+
+            const cell = document.getElementById('zoneCell_' + zid);
+            const occBadge = document.getElementById('occBadge_' + zid);
+            const devLabel = document.getElementById('deviceLabel_' + zid);
+            const lightText = document.getElementById('lightText_' + zid);
+            const modePill = document.getElementById('modePill_' + zid);
+
+            if (z.occupied) {
+              occCount++;
+              cell.classList.add('occupied');
+              occBadge.className = 'zone-occ-badge occ-occupied';
+              occBadge.innerText = 'OCCUPIED (' + (z.occupant_count || 1) + ')';
+            } else {
+              cell.classList.remove('occupied');
+              occBadge.className = 'zone-occ-badge occ-empty';
+              occBadge.innerText = 'EMPTY';
+            }
+
+            devLabel.innerText = z.device ? z.device : 'No Device';
+
+            if (z.state === 'ON') {
+              activeLights++;
+              cell.classList.add('light-on');
+              lightText.className = 'light-status light-on-text';
+              lightText.innerHTML = '💡 ON';
+            } else {
+              cell.classList.remove('light-on');
+              lightText.className = 'light-status light-off-text';
+              lightText.innerHTML = '● OFF';
+            }
+
+            const mode = z.mode || 'AUTO';
+            modePill.innerText = mode;
+            modePill.className = 'mode-pill ' + mode.toLowerCase().replace('_', '-');
+          }
+        }
+
+        document.getElementById('statOccupiedZones').innerText = occCount + ' / 9';
+        document.getElementById('statActiveLights').innerText = activeLights;
+
+        // 4. ESP32 Relays
+        if (data.esp32) {
+          const espOnline = data.esp32.online;
+          const espConn = document.getElementById('esp32ConnBadge');
+          const espPill = document.getElementById('esp32StatusPill');
+          const espText = document.getElementById('esp32StatusText');
+
+          if (espOnline) {
+            espConn.className = 'badge badge-online';
+            espConn.innerText = 'ONLINE (' + data.esp32.port + ')';
+            espPill.className = 'badge badge-online';
+            espText.innerText = 'ESP32 ONLINE';
+          } else {
+            espConn.className = 'badge badge-offline';
+            espConn.innerText = 'EMULATION';
+            espPill.className = 'badge badge-offline';
+            espText.innerText = 'ESP32 EMULATED';
+          }
+
+          const r1 = data.esp32.relay1 === 'ON';
+          const r2 = data.esp32.relay2 === 'ON';
+
+          const r1Badge = document.getElementById('relay1StatusBadge');
+          const r2Badge = document.getElementById('relay2StatusBadge');
+
+          r1Badge.className = r1 ? 'badge badge-online' : 'badge badge-offline';
+          r1Badge.innerText = r1 ? 'ON (CLOSED)' : 'OFF (OPEN)';
+
+          r2Badge.className = r2 ? 'badge badge-online' : 'badge badge-offline';
+          r2Badge.innerText = r2 ? 'ON (CLOSED)' : 'OFF (OPEN)';
+        }
+
+        // 5. PZEM Telemetry
+        if (data.pzem) {
+          const p = data.pzem;
+          document.getElementById('pzemTargetDevice').innerText = p.measured_device || 'Light 1';
+          document.getElementById('pzemTargetZone').innerText = p.measured_zone || 'Z2';
+
+          const pzemBadge = document.getElementById('pzemStatusBadge');
+          if (p.valid) {
+            pzemBadge.className = 'badge badge-online';
+            pzemBadge.innerText = 'PHYSICAL SENSOR ACTIVE';
+          } else {
+            pzemBadge.className = 'badge badge-offline';
+            pzemBadge.innerText = p.status || 'NO AC LOAD';
+          }
+
+          document.getElementById('pzemVoltage').innerText = p.voltage != null ? p.voltage.toFixed(1) : '--';
+          document.getElementById('pzemCurrent').innerText = p.current != null ? p.current.toFixed(2) : '--';
+          document.getElementById('pzemPower').innerText = p.power != null ? p.power.toFixed(1) : '--';
+          document.getElementById('pzemEnergy').innerText = p.energy != null ? p.energy.toFixed(2) : '--';
+          document.getElementById('pzemFreq').innerText = p.frequency != null ? p.frequency.toFixed(1) : '--';
+          document.getElementById('pzemPF').innerText = p.power_factor != null ? p.power_factor.toFixed(2) : '--';
+
+          document.getElementById('statPzemPower').innerText = p.power != null ? (p.power.toFixed(1) + ' W') : '0.0 W';
+        }
+
+      } catch (err) {
+        console.error('API polling error:', err);
+      }
+    }
+
+    // Poll every 500ms
+    setInterval(pollLabStatus, 500);
+    pollLabStatus();
   </script>
 </body>
 </html>

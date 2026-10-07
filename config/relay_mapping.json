@@ -36,5 +36,11 @@
     "enabled": false,
     "esp32_ip": "192.168.1.150",
     "port": 80
+  },
+  "pzem": {
+    "measured_device": "Light 1",
+    "measured_zone": "Z2",
+    "description": "Single PZEM-004T physical CT sensor connected to Light 1 in Zone Z2",
+    "polling_interval_sec": 1.5
   }
 }

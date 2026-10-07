@@ -53,6 +53,8 @@ class VisionController:
         # Diagnostics & FPS
         self.fps: float = 0.0
         self._prev_frame_time: float = time.time()
+        self.latest_clean_frame: Optional[np.ndarray] = None
+        self.latest_clean_jpeg: Optional[bytes] = None
         self.latest_annotated_frame: Optional[np.ndarray] = None
 
     def initialize_camera(self, device_index: int = 0, width: int = 1280, height: int = 720):
@@ -81,6 +83,15 @@ class VisionController:
         self._prev_frame_time = current_time
 
         h, w = frame.shape[:2]
+        self.latest_clean_frame = frame
+
+        # Encode clean frame into JPEG for low-overhead CCTV distribution
+        try:
+            ret, buf = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 80])
+            if ret:
+                self.latest_clean_jpeg = buf.tobytes()
+        except Exception:
+            pass
 
         # 1. Run detection and tracking
         detections = self.detector.detect_and_track(frame)
@@ -111,6 +122,20 @@ class VisionController:
 
         self.latest_annotated_frame = annotated
         return annotated, zone_states, people, events
+
+    def get_clean_jpeg(self) -> Optional[bytes]:
+        """Returns the latest clean, unannotated camera frame as JPEG bytes."""
+        if self.latest_clean_jpeg is not None:
+            return self.latest_clean_jpeg
+        if self.latest_clean_frame is not None:
+            try:
+                ret, buf = cv2.imencode(".jpg", self.latest_clean_frame, [cv2.IMWRITE_JPEG_QUALITY, 80])
+                if ret:
+                    self.latest_clean_jpeg = buf.tobytes()
+                    return self.latest_clean_jpeg
+            except Exception:
+                pass
+        return None
 
     def _render_person_overlay(self, frame: np.ndarray, person: Any, detections: List[Dict[str, Any]]):
         """Renders bounding box, skeleton, floor contact, and diagnostic badge."""

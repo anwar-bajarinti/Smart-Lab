@@ -45,6 +45,8 @@ class EnergyMetrics:
     energy: Optional[float] = None        # Kilowatt-hours (kWh)
     frequency: Optional[float] = None     # Hertz (Hz)
     power_factor: Optional[float] = None  # 0.00 - 1.00
+    measured_device: str = "Light 1"
+    measured_zone: str = "Z2"
     is_live_hardware: bool = False
     status: str = "OFFLINE"
     timestamp: float = 0.0
