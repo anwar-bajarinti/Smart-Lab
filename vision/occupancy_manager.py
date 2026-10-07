@@ -8,7 +8,7 @@ from typing import Dict, List, Optional, Tuple, Any
 import numpy as np
 
 from vision.person_state import PersonState
-from vision.zone_state import ZoneState
+from vision.zone_state import ZoneState, VACANCY_GRACE_PERIOD
 from vision.zone_manager import ZoneManager
 from vision.pose_detector import PoseDetector
 from vision.gesture_detector import GestureDetector
@@ -22,7 +22,7 @@ class OccupancyManager:
     def __init__(
         self,
         zone_manager: ZoneManager,
-        leave_timeout_sec: float = 2.5,
+        leave_timeout_sec: float = VACANCY_GRACE_PERIOD,
         gesture_stability_sec: float = 0.8,
         person_timeout_sec: float = 2.0
     ):

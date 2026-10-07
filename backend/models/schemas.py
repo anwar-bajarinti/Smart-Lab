@@ -32,6 +32,8 @@ class ZoneInfo:
     occupant_count: int = 0
     occupant_ids: List[int] = field(default_factory=list)
     appliances: Dict[str, Any] = field(default_factory=dict)
+    vacancy_timer_active: bool = False
+    vacancy_remaining_seconds: float = 0.0
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)

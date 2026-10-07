@@ -1,7 +1,7 @@
 {
   "description": "Configurable physical relay to zone mapping for Smart Lab Automation",
   "default_active_high": true,
-  "leave_timeout_sec": 2.5,
+  "leave_timeout_sec": 10.0,
   "gesture_stability_sec": 0.8,
   "relays": {
     "1": {

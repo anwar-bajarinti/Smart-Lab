@@ -96,7 +96,9 @@ def test_person_moves_between_zones_isolation():
 
     # Z5 is now empty (Person 1 left at 14.0)
     z5.update(occupants=[], current_time=15.0)  # 1.0s after leave (< 2.0s timeout)
-    assert z5.occupied is True  # In grace period
+    assert z5.occupied is False  # Physically empty
+    assert z5.vacancy_timer_active is True  # In grace period
+    assert z5.mode == "MANUAL_OFF"  # Holds state during grace period
 
     # After timeout passes (t = 16.5, 2.5s after leave >= 2.0s timeout)
     z5.update(occupants=[], current_time=16.5)

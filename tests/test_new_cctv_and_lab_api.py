@@ -85,6 +85,8 @@ def test_master_lab_status_structure(client):
         assert "state" in z
         assert "mode" in z
         assert "device" in z
+        assert "vacancy_timer_active" in z
+        assert "vacancy_remaining_seconds" in z
 
     # Specific zone appliance assignments
     assert data["zones"]["Z2"]["device"] == "Light 1"
@@ -225,3 +227,68 @@ def test_esp32_relay_bridge_pzem_handling():
     assert "relay1" in summary
     assert "relay2" in summary
     bridge.close()
+
+
+def test_master_lab_vacancy_delay_api(client):
+    """
+    Scenario 7: Master status API reflects exact vacancy contract when empty with timer active.
+    """
+    c, _ = client
+
+    # Push active vacancy timer state
+    sync_payload = {
+        "zone_states": {
+            "Z2": {
+                "occupied": False,
+                "occupant_ids": [],
+                "light_state": "ON",
+                "mode": "AUTO",
+                "vacancy_timer_active": True,
+                "vacancy_remaining_seconds": 7.4
+            }
+        },
+        "people": [],
+        "fps": 30.0,
+        "camera_online": True
+    }
+    c.post("/api/lab/sync", json=sync_payload)
+
+    res = c.get("/api/lab/status")
+    assert res.status_code == 200
+    st = res.get_json()
+
+    z2 = st["zones"]["Z2"]
+    assert z2["zone"] == "Z2"
+    assert z2["occupied"] is False
+    assert z2["device"] == "Light 1"
+    assert z2["state"] == "ON"
+    assert z2["vacancy_timer_active"] is True
+    assert z2["vacancy_remaining_seconds"] == 7.4
+
+    # Now person re-enters Z2
+    reenter_payload = {
+        "zone_states": {
+            "Z2": {
+                "occupied": True,
+                "occupant_ids": [1],
+                "light_state": "ON",
+                "mode": "AUTO",
+                "vacancy_timer_active": False,
+                "vacancy_remaining_seconds": 0.0
+            }
+        },
+        "people": [{"tracking_id": 1, "zone": "Z2"}],
+        "fps": 30.0,
+        "camera_online": True
+    }
+    c.post("/api/lab/sync", json=reenter_payload)
+
+    res2 = c.get("/api/lab/status")
+    st2 = res2.get_json()
+    z2_re = st2["zones"]["Z2"]
+    assert z2_re["zone"] == "Z2"
+    assert z2_re["occupied"] is True
+    assert z2_re["device"] == "Light 1"
+    assert z2_re["state"] == "ON"
+    assert z2_re["vacancy_timer_active"] is False
+    assert z2_re["vacancy_remaining_seconds"] == 0.0

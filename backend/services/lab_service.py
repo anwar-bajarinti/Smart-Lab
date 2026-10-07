@@ -45,11 +45,14 @@ class LabService:
         for i in range(1, 10):
             zid = f"Z{i}"
             self.zones[zid] = {
+                "zone": zid,
                 "occupied": False,
                 "occupant_count": 0,
                 "device": self.zone_device_mapping.get(zid, None),
                 "state": "OFF",
-                "mode": "AUTO"
+                "mode": "AUTO",
+                "vacancy_timer_active": False,
+                "vacancy_remaining_seconds": 0.0
             }
 
         # Appliances
@@ -132,12 +135,18 @@ class LabService:
                 light_state = "ON" if (zdata.get("light_state") is True or zdata.get("light_state") == "ON" or zdata.get("light_bool") is True) else "OFF"
                 mode = zdata.get("mode", "AUTO")
 
+                vacancy_timer_active = bool(zdata.get("vacancy_timer_active", False))
+                vacancy_remaining_seconds = float(zdata.get("vacancy_remaining_seconds", 0.0))
+
                 self.zones[zid] = {
+                    "zone": zid,
                     "occupied": occupied,
                     "occupant_count": len(occupants) if isinstance(occupants, list) else (1 if occupied else 0),
                     "device": self.zone_device_mapping.get(zid, None),
                     "state": light_state,
-                    "mode": mode
+                    "mode": mode,
+                    "vacancy_timer_active": vacancy_timer_active,
+                    "vacancy_remaining_seconds": round(vacancy_remaining_seconds, 1)
                 }
 
             # Update appliances based on zones
@@ -187,11 +196,14 @@ class LabService:
                     z = self.zone_service.get_zone(zid)
                     if z:
                         self.zones[zid] = {
+                            "zone": zid,
                             "occupied": z.occupied,
                             "occupant_count": z.occupant_count,
                             "device": self.zone_device_mapping.get(zid, None),
                             "state": z.light_state,
-                            "mode": z.mode
+                            "mode": z.mode,
+                            "vacancy_timer_active": getattr(z, "vacancy_timer_active", False),
+                            "vacancy_remaining_seconds": round(float(getattr(z, "vacancy_remaining_seconds", 0.0)), 1)
                         }
                 self.appliances["light1"] = self.zones.get("Z2", {}).get("state", "OFF")
                 self.appliances["light2"] = self.zones.get("Z8", {}).get("state", "OFF")

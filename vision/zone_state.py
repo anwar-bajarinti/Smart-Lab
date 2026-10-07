@@ -1,27 +1,31 @@
 """
 Independent state manager for physical laboratory zones (Z1 to Z9).
-Enforces deterministic multi-person priority arbitration and vacancy delay timers.
+Enforces deterministic multi-person priority arbitration and non-blocking vacancy delay timers (10.0s).
 """
 
 import time
 from typing import List, Optional, Dict, Any
 from vision.person_state import PersonState
 
+# Configurable Real-time Vacancy Grace Period (Requirement: 10.0 seconds)
+VACANCY_GRACE_PERIOD: float = 10.0
+
 
 class ZoneState:
     """
-    Manages appliances, occupancy lifecycle, and manual overrides for one zone.
+    Manages appliances, occupancy lifecycle, manual overrides, and
+    non-blocking vacancy countdown for one zone.
     
     Priority Resolution (Requirement 10):
         MANUAL_ON > MANUAL_OFF > AUTO
     """
 
-    def __init__(self, zone_id: str, name: str = "", leave_timeout_sec: float = 2.5):
+    def __init__(self, zone_id: str, name: str = "", leave_timeout_sec: float = VACANCY_GRACE_PERIOD):
         self.zone_id: str = zone_id
         self.name: str = name or f"Zone {zone_id}"
         self.leave_timeout_sec: float = leave_timeout_sec
         
-        # State indicators
+        # Physical presence indicators
         self.occupied: bool = False
         self.occupancy_state: str = "EMPTY"  # "OCCUPIED" or "EMPTY"
         self.light_state: bool = False       # True = ON, False = OFF
@@ -29,6 +33,11 @@ class ZoneState:
         self.fan_speed: int = 0              # 0 to 100%
         self.mode: str = "AUTO"              # "AUTO", "MANUAL_OFF", "MANUAL_ON"
         self.manual_override: bool = False
+        
+        # Real-time non-blocking vacancy timer (10-second grace period)
+        self.vacancy_timer_active: bool = False
+        self.vacancy_start_time: float = 0.0
+        self.vacancy_remaining_seconds: float = 0.0
         
         # Timing
         self.last_occupied_time: float = 0.0
@@ -39,7 +48,8 @@ class ZoneState:
 
     def update(self, occupants: List[PersonState], current_time: Optional[float] = None) -> bool:
         """
-        Evaluate current occupants and apply state transitions.
+        Evaluate current occupants and apply state transitions with a non-blocking
+        10-second vacancy timer when empty.
         
         Returns:
             bool: True if an appliance state or mode changed in this frame, False otherwise.
@@ -55,10 +65,16 @@ class ZoneState:
         self.current_occupant_ids = [p.tracking_id for p in occupants]
 
         if occupants:
-            # At least one person is currently physically in the zone
+            # =================================================================
+            # 1. PERSON IS PRESENT IN THIS ZONE
+            # =================================================================
             self.occupied = True
             self.occupancy_state = "OCCUPIED"
             self.last_occupied_time = current_time
+
+            # Cancel any running vacancy timer immediately
+            self.vacancy_timer_active = False
+            self.vacancy_remaining_seconds = 0.0
 
             # Multi-person arbitration logic: MANUAL_ON > MANUAL_OFF > AUTO
             has_manual_on = any(p.mode == "MANUAL_ON" for p in occupants)
@@ -86,25 +102,40 @@ class ZoneState:
                     self.fan_speed = 60
 
         else:
-            # Nobody currently detected in this zone
-            if self.occupied:
-                # Check leave timeout (2-3 seconds grace period)
-                time_since_last_seen = current_time - self.last_occupied_time
-                if time_since_last_seen >= self.leave_timeout_sec:
-                    # Timeout reached: clear zone
-                    self.occupied = False
-                    self.occupancy_state = "EMPTY"
+            # =================================================================
+            # 2. NO OCCUPANTS CURRENTLY DETECTED IN THIS ZONE
+            # =================================================================
+            self.occupied = False
+            self.occupancy_state = "EMPTY"
+
+            # Check if appliances were ON, or manual override was active, or timer already running
+            if self.light_state or self.fan_state or self.manual_override or self.vacancy_timer_active:
+                if not self.vacancy_timer_active:
+                    # Person just left -> START the 10-second vacancy timer
+                    self.vacancy_timer_active = True
+                    self.vacancy_start_time = self.last_occupied_time if self.last_occupied_time > 0 else current_time
+
+                time_vacant = current_time - self.vacancy_start_time
+                remaining = self.leave_timeout_sec - time_vacant
+
+                if remaining > 0.0:
+                    # Still within the 10.0-second vacancy window:
+                    # KEEP APPLIANCES IN EXISTING STATE (DO NOT TURN OFF YET)
+                    self.vacancy_remaining_seconds = max(0.0, remaining)
+                else:
+                    # COMPLETE 10 SECONDS HAVE ELAPSED WHILE EMPTY:
+                    # Turn physical appliances OFF and reset zone to AUTO
+                    self.vacancy_timer_active = False
+                    self.vacancy_remaining_seconds = 0.0
                     self.light_state = False
                     self.fan_state = False
                     self.fan_speed = 0
                     self.mode = "AUTO"
                     self.manual_override = False
-                else:
-                    # Inside grace period: keep existing states running
-                    pass
             else:
-                # Remains EMPTY
-                self.occupancy_state = "EMPTY"
+                # Zone is already empty and OFF
+                self.vacancy_timer_active = False
+                self.vacancy_remaining_seconds = 0.0
                 self.light_state = False
                 self.fan_state = False
                 self.fan_speed = 0
@@ -129,6 +160,9 @@ class ZoneState:
         self.manual_override = True
         self.mode = "MANUAL_ON" if state else "MANUAL_OFF"
         self.last_state_change = time.time()
+        if state:
+            self.vacancy_timer_active = False
+            self.vacancy_remaining_seconds = 0.0
 
     def manual_set_fan(self, state: bool, speed: Optional[int] = None):
         """Web/Manual override for fan."""
@@ -159,5 +193,7 @@ class ZoneState:
             "manual_override": self.manual_override,
             "occupant_count": len(self.current_occupant_ids),
             "occupant_ids": self.current_occupant_ids,
+            "vacancy_timer_active": self.vacancy_timer_active,
+            "vacancy_remaining_seconds": round(self.vacancy_remaining_seconds, 1),
             "last_occupied_time": round(self.last_occupied_time, 2)
         }

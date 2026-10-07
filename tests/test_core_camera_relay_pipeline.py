@@ -62,7 +62,7 @@ class MockRelayBridge(ESP32RelayBridge):
 @pytest.fixture
 def lab_env():
     zm = ZoneManager(config_path="config/zones.json")
-    mgr = OccupancyManager(zone_manager=zm, leave_timeout_sec=2.5, gesture_stability_sec=0.7)
+    mgr = OccupancyManager(zone_manager=zm, leave_timeout_sec=10.0, gesture_stability_sec=0.7)
     bridge = MockRelayBridge()
     # 1200x900 resolution
     w, h = 1200, 900
@@ -88,7 +88,13 @@ def test_1_person_enters_z2_light1_on(lab_env):
 
 
 def test_2_person_leaves_z2_light1_off_after_timeout(lab_env):
-    """Scenario 2: Person leaves Z2 -> Light 1 stays ON during grace period, turns OFF after 2.5s timeout."""
+    """
+    Scenario 2: Person leaves Z2 ->
+    - Zone becomes EMPTY immediately (occupied = False)
+    - 10-second vacancy timer starts
+    - At 5.0s empty: Light 1 MUST REMAIN ON, Relay 1 (GPIO 22) stays TRUE
+    - At 10.1s empty: Light 1 turns OFF, Relay 1 (GPIO 22) turns FALSE.
+    """
     _, mgr, bridge, w, h, z2_pos, _ = lab_env
     kpts = make_keypoints_for_zone(z2_pos[0], z2_pos[1], left_up=False, right_up=False)
     detections = [{"tracking_id": 1, "bbox": (z2_pos[0]-40, z2_pos[1]-150, z2_pos[0]+40, z2_pos[1]), "keypoints": kpts}]
@@ -98,18 +104,51 @@ def test_2_person_leaves_z2_light1_off_after_timeout(lab_env):
     bridge.sync_zone_states(mgr.zones)
     assert bridge.relay_states["1"] is True
 
-    # Step 2: Person leaves, checked at t = 11.5 (1.5s after leave < 2.5s timeout)
-    mgr.process_frame_detections([], w, h, current_time=11.5)
-    bridge.sync_zone_states(mgr.zones)
-    assert mgr.zones["Z2"].occupied is True
-    assert bridge.relay_states["1"] is True  # Must stay ON during grace period!
-
-    # Step 3: Checked at t = 12.6 (2.6s after leave >= 2.5s timeout)
-    mgr.process_frame_detections([], w, h, current_time=12.6)
+    # Step 2: Person leaves, checked at t = 15.0 (5.0s after leave < 10.0s timeout)
+    mgr.process_frame_detections([], w, h, current_time=15.0)
     bridge.sync_zone_states(mgr.zones)
     assert mgr.zones["Z2"].occupied is False
+    assert mgr.zones["Z2"].occupancy_state == "EMPTY"
+    assert mgr.zones["Z2"].vacancy_timer_active is True
+    assert 4.9 <= mgr.zones["Z2"].vacancy_remaining_seconds <= 5.1
+    assert mgr.zones["Z2"].light_state is True
+    assert bridge.relay_states["1"] is True  # MUST REMAIN ON DURING 10s GRACE PERIOD!
+
+    # Step 3: Checked at t = 20.1 (10.1s after leave >= 10.0s timeout)
+    mgr.process_frame_detections([], w, h, current_time=20.1)
+    bridge.sync_zone_states(mgr.zones)
+    assert mgr.zones["Z2"].occupied is False
+    assert mgr.zones["Z2"].vacancy_timer_active is False
     assert mgr.zones["Z2"].light_state is False
-    assert bridge.relay_states["1"] is False  # Now Relay 1 turns OFF!
+    assert bridge.relay_states["1"] is False  # Now Relay 1 (GPIO 22) turns OFF!
+
+
+def test_2b_person_reenters_z2_cancels_10s_timer(lab_env):
+    """
+    Person leaves Z2, but re-enters within 10.0s:
+    Vacancy timer cancelled, Light 1 remains ON continuously.
+    """
+    _, mgr, bridge, w, h, z2_pos, _ = lab_env
+    kpts = make_keypoints_for_zone(z2_pos[0], z2_pos[1], left_up=False, right_up=False)
+    detections = [{"tracking_id": 1, "bbox": (z2_pos[0]-40, z2_pos[1]-150, z2_pos[0]+40, z2_pos[1]), "keypoints": kpts}]
+
+    # Enter Z2 at t = 10.0
+    mgr.process_frame_detections(detections, w, h, current_time=10.0)
+    bridge.sync_zone_states(mgr.zones)
+    assert bridge.relay_states["1"] is True
+
+    # Leaves at t = 10.0, checked at t = 15.0 (5.0s < 10.0s)
+    mgr.process_frame_detections([], w, h, current_time=15.0)
+    bridge.sync_zone_states(mgr.zones)
+    assert mgr.zones["Z2"].vacancy_timer_active is True
+    assert bridge.relay_states["1"] is True
+
+    # Re-enters at t = 16.0 (6.0s < 10.0s)
+    mgr.process_frame_detections(detections, w, h, current_time=16.0)
+    bridge.sync_zone_states(mgr.zones)
+    assert mgr.zones["Z2"].occupied is True
+    assert mgr.zones["Z2"].vacancy_timer_active is False
+    assert bridge.relay_states["1"] is True
 
 
 def test_3_person_enters_z8_light2_on(lab_env):
@@ -270,15 +309,17 @@ def test_8_moving_between_zones_updates_control_correctly(lab_env):
     assert mgr.zones["Z8"].mode == "AUTO"
     assert bridge.relay_states["2"] is True
 
-    # Z2 grace period check at t = 63.5 (1.5s after departure < 2.5s)
-    assert mgr.zones["Z2"].occupied is True
+    # Z2 grace period check at t = 65.0 (3.0s after departure < 10.0s)
+    assert mgr.zones["Z2"].occupied is False
+    assert mgr.zones["Z2"].vacancy_timer_active is True
 
-    # After timeout at t = 65.0 (3.0s after departure >= 2.5s)
-    mgr.process_frame_detections(det_z8, w, h, current_time=t0 + 5.0)
+    # After 10s timeout at t = 72.5 (10.5s after departure >= 10.0s)
+    mgr.process_frame_detections(det_z8, w, h, current_time=t0 + 12.5)
     bridge.sync_zone_states(mgr.zones)
 
     # Z2 is now completely reset to EMPTY & AUTO
     assert mgr.zones["Z2"].occupied is False
+    assert mgr.zones["Z2"].vacancy_timer_active is False
     assert mgr.zones["Z2"].mode == "AUTO"
     assert bridge.relay_states["1"] is False
 

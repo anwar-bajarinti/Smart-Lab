@@ -13,6 +13,7 @@ from vision.camera import Camera
 from vision.zone_manager import ZoneManager
 from vision.occupancy_manager import OccupancyManager
 from vision.person_detector import PersonDetector
+from vision.zone_state import VACANCY_GRACE_PERIOD
 
 
 # Skeleton connections for standard 17 COCO keypoints
@@ -44,7 +45,7 @@ class VisionController:
         self.zone_manager = ZoneManager(zones_config_path)
         self.occupancy_manager = OccupancyManager(
             zone_manager=self.zone_manager,
-            leave_timeout_sec=2.5,
+            leave_timeout_sec=VACANCY_GRACE_PERIOD,
             gesture_stability_sec=0.8
         )
         self.detector = PersonDetector(model_name_or_path="yolov8n-pose.pt")
@@ -280,9 +281,13 @@ class VisionController:
             mode_col = (0, 215, 255) if mode == "MANUAL_ON" else ((100, 100, 255) if mode == "MANUAL_OFF" else (200, 200, 200))
             cv2.putText(panel, f"| {mode}", (145, y + 23), cv2.FONT_HERSHEY_SIMPLEX, 0.38, mode_col, 1, cv2.LINE_AA)
 
-            # Occupancy
-            occ_col = (0, 255, 100) if occ == "OCCUPIED" else (100, 105, 110)
-            cv2.putText(panel, occ[:3], (panel_w - 45, y + 23), cv2.FONT_HERSHEY_SIMPLEX, 0.38, occ_col, 1, cv2.LINE_AA)
+            # Occupancy and vacancy countdown
+            if z.get("vacancy_timer_active", False) and occ == "EMPTY":
+                rem = z.get("vacancy_remaining_seconds", 0.0)
+                cv2.putText(panel, f"{rem:.1f}s", (panel_w - 55, y + 23), cv2.FONT_HERSHEY_SIMPLEX, 0.38, (0, 165, 255), 1, cv2.LINE_AA)
+            else:
+                occ_col = (0, 255, 100) if occ == "OCCUPIED" else (100, 105, 110)
+                cv2.putText(panel, occ[:3], (panel_w - 45, y + 23), cv2.FONT_HERSHEY_SIMPLEX, 0.38, occ_col, 1, cv2.LINE_AA)
 
         # Footer instructions
         footer_y = start_y + 9 * row_height + 20

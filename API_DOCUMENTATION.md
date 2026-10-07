@@ -89,15 +89,15 @@ The **single master endpoint** that provides the complete state of the laborator
   ],
 
   "zones": {
-    "Z1": { "occupied": false, "occupant_count": 0, "device": null, "state": "OFF", "mode": "AUTO" },
-    "Z2": { "occupied": true,  "occupant_count": 1, "device": "Light 1", "state": "ON", "mode": "AUTO" },
-    "Z3": { "occupied": false, "occupant_count": 0, "device": null, "state": "OFF", "mode": "AUTO" },
-    "Z4": { "occupied": false, "occupant_count": 0, "device": null, "state": "OFF", "mode": "AUTO" },
-    "Z5": { "occupied": false, "occupant_count": 0, "device": null, "state": "OFF", "mode": "AUTO" },
-    "Z6": { "occupied": false, "occupant_count": 0, "device": null, "state": "OFF", "mode": "AUTO" },
-    "Z7": { "occupied": false, "occupant_count": 0, "device": null, "state": "OFF", "mode": "AUTO" },
-    "Z8": { "occupied": true,  "occupant_count": 1, "device": "Light 2", "state": "OFF", "mode": "MANUAL_OFF" },
-    "Z9": { "occupied": false, "occupant_count": 0, "device": null, "state": "OFF", "mode": "AUTO" }
+    "Z1": { "zone": "Z1", "occupied": false, "occupant_count": 0, "device": null, "state": "OFF", "mode": "AUTO", "vacancy_timer_active": false, "vacancy_remaining_seconds": 0.0 },
+    "Z2": { "zone": "Z2", "occupied": true,  "occupant_count": 1, "device": "Light 1", "state": "ON", "mode": "AUTO", "vacancy_timer_active": false, "vacancy_remaining_seconds": 0.0 },
+    "Z3": { "zone": "Z3", "occupied": false, "occupant_count": 0, "device": null, "state": "OFF", "mode": "AUTO", "vacancy_timer_active": false, "vacancy_remaining_seconds": 0.0 },
+    "Z4": { "zone": "Z4", "occupied": false, "occupant_count": 0, "device": null, "state": "OFF", "mode": "AUTO", "vacancy_timer_active": false, "vacancy_remaining_seconds": 0.0 },
+    "Z5": { "zone": "Z5", "occupied": false, "occupant_count": 0, "device": null, "state": "OFF", "mode": "AUTO", "vacancy_timer_active": false, "vacancy_remaining_seconds": 0.0 },
+    "Z6": { "zone": "Z6", "occupied": false, "occupant_count": 0, "device": null, "state": "OFF", "mode": "AUTO", "vacancy_timer_active": false, "vacancy_remaining_seconds": 0.0 },
+    "Z7": { "zone": "Z7", "occupied": false, "occupant_count": 0, "device": null, "state": "OFF", "mode": "AUTO", "vacancy_timer_active": false, "vacancy_remaining_seconds": 0.0 },
+    "Z8": { "zone": "Z8", "occupied": true,  "occupant_count": 1, "device": "Light 2", "state": "OFF", "mode": "MANUAL_OFF", "vacancy_timer_active": false, "vacancy_remaining_seconds": 0.0 },
+    "Z9": { "zone": "Z9", "occupied": false, "occupant_count": 0, "device": null, "state": "OFF", "mode": "AUTO", "vacancy_timer_active": false, "vacancy_remaining_seconds": 0.0 }
   },
 
   "appliances": {
@@ -147,9 +147,10 @@ The **single master endpoint** that provides the complete state of the laborator
     - `"MANUAL_OFF"`: Person raised 1 hand for $\ge 0.8$s. Light switched OFF and remains OFF while standing.
     - `"MANUAL_ON"`: Person raised 2 hands for $\ge 0.8$s. Light switched ON.
 
-#### 3. `zones` (3×3 Physical Grid)
+#### 3. `zones` (3×3 Physical Grid & 10-Second Vacancy Delay)
 Contains keys `"Z1"` through `"Z9"`:
 $$\begin{matrix} Z_1 & Z_2 & Z_3 \\ Z_4 & Z_5 & Z_6 \\ Z_7 & Z_8 & Z_9 \end{matrix}$$
+- `zone` *(string)*: Zone identifier (e.g. `"Z2"`).
 - `occupied` *(boolean)*: Whether anyone's feet are currently located in this zone.
 - `occupant_count` *(int)*: Number of occupants in this zone.
 - `device` *(string|null)*:
@@ -158,6 +159,15 @@ $$\begin{matrix} Z_1 & Z_2 & Z_3 \\ Z_4 & Z_5 & Z_6 \\ Z_7 & Z_8 & Z_9 \end{matr
   - `null` for other zones.
 - `state` *(string)*: `"ON"` or `"OFF"`.
 - `mode` *(string)*: Zone operating mode (`"AUTO"`, `"MANUAL_OFF"`, `"MANUAL_ON"`).
+- `vacancy_timer_active` *(boolean)*: `true` when a person leaves the zone and the non-blocking 10.0-second delay is counting down while light remains ON.
+- `vacancy_remaining_seconds` *(float)*: Real-time remaining seconds before turn-off (e.g. `8.7`, `5.0`, `0.0`).
+
+> **10-Second Real-Time Vacancy Delay Rules (`VACANCY_GRACE_PERIOD = 10.0s`)**:
+> 1. **Entry**: Person enters $\to$ `occupied: true` $\to$ Light turns ON immediately (`GPIO22`/`GPIO23` HIGH).
+> 2. **Departure**: Person leaves $\to$ `occupied: false`, but light **REMAINS ON** (`state: "ON"`), non-blocking 10-second timer starts (`vacancy_timer_active: true`).
+> 3. **Re-entry (< 10s)**: If anyone re-enters within 10 seconds $\to$ timer cancelled immediately, light stays ON continuously without toggling.
+> 4. **10s Complete Empty**: If zone remains empty for the full 10.0 seconds $\to$ light turns OFF (`state: "OFF"`), physical relay drops LOW, and zone resets to `AUTO`.
+> 5. **Multi-person**: Timer is based on zone occupancy (0 people in zone), not individual disappearance. If Person 1 leaves but Person 2 remains, no timer starts.
 
 #### 4. `appliances`
 - `light1`: `"ON"` / `"OFF"` (Controls physical Relay 1 on ESP32 GPIO 22).

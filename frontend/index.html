@@ -426,7 +426,29 @@
     .zone-device {
       font-size: 12px;
       color: var(--text-muted);
-      margin: 8px 0;
+      margin: 6px 0 2px 0;
+    }
+
+    .zone-vacancy {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--warning);
+      font-family: 'JetBrains Mono', monospace;
+      margin-bottom: 6px;
+      min-height: 16px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .zone-vacancy.active {
+      color: #f59e0b;
+      animation: pulse-warn 1.5s infinite;
+    }
+
+    @keyframes pulse-warn {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.6; }
     }
 
     .zone-bottom {
@@ -847,6 +869,7 @@
             <span class="zone-occ-badge occ-empty" id="occBadge_${zid}">EMPTY</span>
           </div>
           <div class="zone-device" id="deviceLabel_${zid}">--</div>
+          <div class="zone-vacancy" id="vacancyTimer_${zid}"></div>
           <div class="zone-bottom">
             <span class="light-status light-off-text" id="lightText_${zid}">● OFF</span>
             <span class="mode-pill auto" id="modePill_${zid}">AUTO</span>
@@ -925,6 +948,18 @@
             }
 
             devLabel.innerText = z.device ? z.device : 'No Device';
+
+            const vacEl = document.getElementById('vacancyTimer_' + zid);
+            if (vacEl) {
+              if (!z.occupied && z.state === 'ON' && z.vacancy_timer_active) {
+                const rem = (typeof z.vacancy_remaining_seconds === 'number') ? z.vacancy_remaining_seconds.toFixed(1) : '10.0';
+                vacEl.innerText = 'Turning OFF in: ' + rem + ' s';
+                vacEl.className = 'zone-vacancy active';
+              } else {
+                vacEl.innerText = '';
+                vacEl.className = 'zone-vacancy';
+              }
+            }
 
             if (z.state === 'ON') {
               activeLights++;
