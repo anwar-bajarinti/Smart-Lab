@@ -1029,9 +1029,9 @@
           }
 
           document.getElementById('pzemVoltage').innerText = p.voltage != null ? p.voltage.toFixed(1) : '--';
-          document.getElementById('pzemCurrent').innerText = p.current != null ? p.current.toFixed(2) : '--';
+          document.getElementById('pzemCurrent').innerText = p.current != null ? p.current.toFixed(3) : '--';
           document.getElementById('pzemPower').innerText = p.power != null ? p.power.toFixed(1) : '--';
-          document.getElementById('pzemEnergy').innerText = p.energy != null ? p.energy.toFixed(2) : '--';
+          document.getElementById('pzemEnergy').innerText = p.energy != null ? p.energy.toFixed(3) : '--';
           document.getElementById('pzemFreq').innerText = p.frequency != null ? p.frequency.toFixed(1) : '--';
           document.getElementById('pzemPF').innerText = p.power_factor != null ? p.power_factor.toFixed(2) : '--';
 

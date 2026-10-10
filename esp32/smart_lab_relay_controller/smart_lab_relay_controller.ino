@@ -4,9 +4,11 @@
 // ==============================================================================
 // SMART LAB AUTOMATION — ESP32 DUAL RELAY & PZEM-004T CONTROLLER
 // ==============================================================================
-// GPIO22 -> Relay 1 IN -> Light 1 (Zone Z1)
-// GPIO23 -> Relay 2 IN -> Light 2 (Zone Z9)
-// PZEM   -> GPIO25 (RX <- PZEM TX), GPIO33 (TX -> PZEM RX)
+// Confirmed Hardware Mapping:
+// - GPIO22 -> Relay 1 IN -> Light 1 (Zone Z1) (Active HIGH)
+// - GPIO23 -> Relay 2 IN -> Light 2 (Zone Z9) (Active HIGH)
+// - GPIO25 -> ESP32 RX <- PZEM TX (UART2)
+// - GPIO33 -> ESP32 TX -> PZEM RX (UART2)
 // ==============================================================================
 
 #define RELAY1_PIN  22  // Light 1 (Active HIGH)
@@ -20,12 +22,8 @@
 #define RELAY_ON    HIGH
 #define RELAY_OFF   LOW
 
-// Use HardwareSerial 2 (UART2) to avoid ESP32 SPI flash contention
 HardwareSerial pzemSerial(2);
 PZEM004Tv30 pzem(pzemSerial, PZEM_RX_PIN, PZEM_TX_PIN);
-
-int activeRx = PZEM_RX_PIN;
-int activeTx = PZEM_TX_PIN;
 
 bool relay1State = false;
 bool relay2State = false;
@@ -45,55 +43,34 @@ String serialBuf = "";
 void setRelay1(bool state) {
   relay1State = state;
   digitalWrite(RELAY1_PIN, state ? RELAY_ON : RELAY_OFF);
-  Serial.printf("[ACK] Light 1 (GPIO 22) -> %s\n", state ? "ON" : "OFF");
+  Serial.printf("[ACK] Relay 1 / Light 1 (GPIO 22) -> %s\n", state ? "ON" : "OFF");
 }
 
 void setRelay2(bool state) {
   relay2State = state;
   digitalWrite(RELAY2_PIN, state ? RELAY_ON : RELAY_OFF);
-  Serial.printf("[ACK] Light 2 (GPIO 23) -> %s\n", state ? "ON" : "OFF");
+  Serial.printf("[ACK] Relay 2 / Light 2 (GPIO 23) -> %s\n", state ? "ON" : "OFF");
 }
 
 void readPzemSensor() {
   float v = pzem.voltage();
+  float c = pzem.current();
+  float p = pzem.power();
+  float e = pzem.energy();
+  float f = pzem.frequency();
+  float pf = pzem.pf();
 
-  // If failed on default pins, test reversed RX/TX in case jumper wires are swapped
-  if (isnan(v)) {
-    int altRx = (activeRx == 25) ? 33 : 25;
-    int altTx = (activeTx == 33) ? 25 : 33;
-    pzemSerial.begin(9600, SERIAL_8N1, altRx, altTx);
-    pzem = PZEM004Tv30(pzemSerial, altRx, altTx);
-    delay(40);
-    float vAlt = pzem.voltage();
-    if (!isnan(vAlt) && vAlt > 0.0f) {
-      activeRx = altRx;
-      activeTx = altTx;
-      v = vAlt;
-      Serial.printf("[PZEM] Auto-detected reversed wiring! Locked to RX:%d TX:%d\n", activeRx, activeTx);
-    } else {
-      // Revert back to primary pins
-      pzemSerial.begin(9600, SERIAL_8N1, activeRx, activeTx);
-      pzem = PZEM004Tv30(pzemSerial, activeRx, activeTx);
-    }
-  }
-
-  if (!isnan(v) && v > 0.0f) {
+  // Validate plausible AC mains metrics to filter any serial alignment glitches
+  if (!isnan(v) && v >= 80.0f && v <= 300.0f && (isnan(f) || (f >= 40.0f && f <= 70.0f))) {
     pzemVoltage   = v;
-    pzemCurrent   = pzem.current();
-    pzemPower     = pzem.power();
-    pzemEnergy    = pzem.energy();
-    pzemFrequency = pzem.frequency();
-    pzemPF        = pzem.pf();
+    pzemCurrent   = (isnan(c) || c < 0.0f) ? 0.0f : c;
+    pzemPower     = (isnan(p) || p < 0.0f) ? 0.0f : p;
+    pzemEnergy    = (isnan(e) || e < 0.0f) ? 0.0f : e;
+    pzemFrequency = (isnan(f) || f < 40.0f || f > 70.0f) ? 50.0f : f;
+    pzemPF        = (isnan(pf) || pf < 0.0f || pf > 1.0f) ? 1.0f : pf;
+    pzemValid     = true;
 
-    if (isnan(pzemCurrent))   pzemCurrent   = 0.0f;
-    if (isnan(pzemPower))     pzemPower     = 0.0f;
-    if (isnan(pzemEnergy))    pzemEnergy    = 0.0f;
-    if (isnan(pzemFrequency)) pzemFrequency = 50.0f;
-    if (isnan(pzemPF))        pzemPF        = 1.0f;
-
-    pzemValid = true;
-
-    // Human-readable format (matches user's sketch)
+    // Human-readable format
     Serial.println("\n--- ACTUAL PZEM DATA ---");
     Serial.printf("Voltage:   %.2f V\n", pzemVoltage);
     Serial.printf("Current:   %.3f A\n", pzemCurrent);
@@ -102,13 +79,13 @@ void readPzemSensor() {
     Serial.printf("Frequency: %.2f Hz\n", pzemFrequency);
     Serial.printf("Power PF:  %.2f\n", pzemPF);
 
-    // JSON machine-readable line for Python live system
+    // Machine-readable JSON line for Python bridge
     Serial.printf("PZEM:{\"voltage\":%.1f,\"current\":%.3f,\"power\":%.1f,\"energy\":%.3f,\"frequency\":%.1f,\"pf\":%.2f,\"valid\":true}\n",
                   pzemVoltage, pzemCurrent, pzemPower, pzemEnergy, pzemFrequency, pzemPF);
   } else {
     pzemValid = false;
     Serial.println("\n--- ACTUAL PZEM DATA ---");
-    Serial.println("PZEM NOT RESPONDING (Verify AC mains L & N are connected to PZEM-004T screw terminals)");
+    Serial.println("PZEM NOT RESPONDING");
     Serial.println("PZEM:{\"voltage\":null,\"current\":null,\"power\":null,\"energy\":null,\"frequency\":null,\"pf\":null,\"valid\":false}");
   }
 }
@@ -118,24 +95,28 @@ void parseCommand(String cmd) {
   if (cmd.length() == 0) return;
 
   // Single-character commands
-  if (cmd == "1") { setRelay1(true); return; }
-  if (cmd == "0") { setRelay1(false); return; }
-  if (cmd == "2") { setRelay2(true); return; }
-  if (cmd == "3") { setRelay2(false); return; }
-  if (cmd == "A" || cmd == "a") { setRelay1(true); setRelay2(true); return; }
-  if (cmd == "B" || cmd == "b") { setRelay1(false); setRelay2(false); return; }
+  if (cmd == "1") { setRelay1(true);  readPzemSensor(); return; }
+  if (cmd == "0") { setRelay1(false); readPzemSensor(); return; }
+  if (cmd == "2") { setRelay2(true);  readPzemSensor(); return; }
+  if (cmd == "3") { setRelay2(false); readPzemSensor(); return; }
+  if (cmd == "A" || cmd == "a") { setRelay1(true);  setRelay2(true);  readPzemSensor(); return; }
+  if (cmd == "B" || cmd == "b") { setRelay1(false); setRelay2(false); readPzemSensor(); return; }
 
   // Word-based commands
   String upper = cmd;
   upper.toUpperCase();
   if (upper == "R1 ON" || upper == "RELAY 1 ON" || upper == "LIGHT 1 ON") {
     setRelay1(true);
+    readPzemSensor();
   } else if (upper == "R1 OFF" || upper == "RELAY 1 OFF" || upper == "LIGHT 1 OFF") {
     setRelay1(false);
+    readPzemSensor();
   } else if (upper == "R2 ON" || upper == "RELAY 2 ON" || upper == "LIGHT 2 ON") {
     setRelay2(true);
+    readPzemSensor();
   } else if (upper == "R2 OFF" || upper == "RELAY 2 OFF" || upper == "LIGHT 2 OFF") {
     setRelay2(false);
+    readPzemSensor();
   } else if (upper == "STATUS") {
     Serial.printf("[STATUS] Relay1(GPIO22):%s | Relay2(GPIO23):%s | PZEM:%s\n",
                   relay1State ? "ON" : "OFF",
@@ -160,18 +141,20 @@ void setup() {
   digitalWrite(RELAY2_PIN, RELAY_OFF);
   digitalWrite(STATUS_LED, LOW);
 
-  // CRITICAL: Initialize UART2 in setup() with GPIO25 (RX) & GPIO33 (TX) at 9600 baud
+  // Initialize PZEM UART on GPIO25 (RX) & GPIO33 (TX)
   pzemSerial.begin(9600, SERIAL_8N1, PZEM_RX_PIN, PZEM_TX_PIN);
-  pzem = PZEM004Tv30(pzemSerial, PZEM_RX_PIN, PZEM_TX_PIN);
 
   Serial.println("\n==================================================");
   Serial.println(" SMART LAB - ESP32 DUAL RELAY & PZEM-004T CONTROLLER");
   Serial.println("==================================================");
   Serial.println(" Relay 1 (Light 1 / Z1) : GPIO 22 (Active HIGH)");
   Serial.println(" Relay 2 (Light 2 / Z9) : GPIO 23 (Active HIGH)");
-  Serial.println(" PZEM UART              : RX=GPIO25, TX=GPIO33");
+  Serial.printf(" PZEM UART              : RX=GPIO%d, TX=GPIO%d\n", PZEM_RX_PIN, PZEM_TX_PIN);
   Serial.println(" Commands               : 1=R1 ON, 0=R1 OFF, 2=R2 ON, 3=R2 OFF, A=Both ON, B=Both OFF");
   Serial.println("==================================================");
+
+  // Initial read
+  readPzemSensor();
 }
 
 void loop() {
@@ -184,14 +167,20 @@ void loop() {
         serialBuf = "";
       }
     } else {
-      if (serialBuf.length() < 64) {
-        serialBuf += c;
+      // Immediate single-char command handling if buffer is empty
+      if (serialBuf.length() == 0 && (c == '0' || c == '1' || c == '2' || c == '3' || c == 'A' || c == 'B' || c == 'a' || c == 'b')) {
+        String singleCmd = String(c);
+        parseCommand(singleCmd);
+      } else {
+        if (serialBuf.length() < 64) {
+          serialBuf += c;
+        }
       }
     }
   }
 
-  // Periodic PZEM Sensor Read (Every 1000ms)
-  if (millis() - lastRead >= 1000) {
+  // Periodic PZEM Sensor Read (Every 1500ms)
+  if (millis() - lastRead >= 1500) {
     lastRead = millis();
     readPzemSensor();
   }

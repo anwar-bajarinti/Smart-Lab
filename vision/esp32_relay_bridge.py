@@ -179,14 +179,100 @@ class ESP32RelayBridge:
             self._pzem_thread.start()
 
     def _pzem_poll_loop(self):
-        """Non-blocking background thread reading PZEM measurements periodically."""
+        """Continuous background thread reading PZEM measurements and telemetry."""
         while self._running:
             if self.is_connected and self.ser:
-                self.poll_pzem()
-            time.sleep(self.pzem_polling_interval)
+                try:
+                    lines_to_parse = ""
+                    with self._serial_lock:
+                        if getattr(self.ser, "is_open", False) and self.ser.in_waiting > 0:
+                            lines_to_parse = self.ser.read_all().decode("utf-8", errors="ignore")
+                    
+                    if lines_to_parse:
+                        self._parse_incoming_telemetry(lines_to_parse)
+
+                    # Trigger a query heartbeat if no telemetry was received in the last 2.5 seconds
+                    now = time.time()
+                    if now - self.pzem_data.get("last_read", 0) > 2.5:
+                        with self._serial_lock:
+                            if getattr(self.ser, "is_open", False):
+                                self.ser.write(b"PZEM\n")
+                                self.ser.flush()
+                except Exception:
+                    pass
+            time.sleep(0.15)
+
+    def _parse_incoming_telemetry(self, raw_text: str):
+        """Extracts and validates PZEM telemetry from JSON lines or human-readable text."""
+        if not raw_text:
+            return
+
+        for line in raw_text.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+
+            # 1. JSON format: PZEM:{...}
+            if line.startswith("PZEM:"):
+                payload = line[5:].strip()
+                try:
+                    parsed = json.loads(payload)
+                    v = parsed.get("voltage")
+                    if v is not None and float(v) > 0.0:
+                        v_val = float(v)
+                        if 80.0 <= v_val <= 300.0:
+                            self.pzem_data["voltage"] = v_val
+                            self.pzem_data["current"] = max(0.0, float(parsed.get("current", 0.0) or 0.0))
+                            self.pzem_data["power"] = max(0.0, float(parsed.get("power", 0.0) or 0.0))
+                            self.pzem_data["energy"] = max(0.0, float(parsed.get("energy", 0.0) or 0.0))
+                            self.pzem_data["frequency"] = float(parsed.get("frequency", 50.0) or 50.0)
+                            self.pzem_data["power_factor"] = float(parsed.get("pf", 1.0) or 1.0)
+                            self.pzem_data["valid"] = True
+                            self.pzem_data["status"] = "ONLINE"
+                            self.pzem_data["last_read"] = time.time()
+                            continue
+                    elif v is None:
+                        self.pzem_data["valid"] = False
+                        self.pzem_data["status"] = "NO_AC_LOAD"
+                except Exception:
+                    pass
+
+            # 2. Human-readable lines (matches Arduino Serial Monitor)
+            if "Voltage:" in line and "V" in line:
+                m = re.search(r"Voltage:\s*([\d\.]+)", line)
+                if m:
+                    v_val = float(m.group(1))
+                    if 80.0 <= v_val <= 300.0:
+                        self.pzem_data["voltage"] = v_val
+                        self.pzem_data["valid"] = True
+                        self.pzem_data["status"] = "ONLINE"
+                        self.pzem_data["last_read"] = time.time()
+            if "Current:" in line and "A" in line:
+                m = re.search(r"Current:\s*([\d\.]+)", line)
+                if m:
+                    self.pzem_data["current"] = float(m.group(1))
+            if "Power:" in line and "W" in line:
+                m = re.search(r"Power:\s*([\d\.]+)", line)
+                if m:
+                    self.pzem_data["power"] = float(m.group(1))
+            if "Energy:" in line and "kWh" in line:
+                m = re.search(r"Energy:\s*([\d\.]+)", line)
+                if m:
+                    self.pzem_data["energy"] = float(m.group(1))
+            if "Frequency:" in line and "Hz" in line:
+                m = re.search(r"Frequency:\s*([\d\.]+)", line)
+                if m:
+                    self.pzem_data["frequency"] = float(m.group(1))
+            if "Power PF:" in line:
+                m = re.search(r"Power PF:\s*([\d\.]+)", line)
+                if m:
+                    self.pzem_data["power_factor"] = float(m.group(1))
+            if "PZEM NOT RESPONDING" in line:
+                self.pzem_data["valid"] = False
+                self.pzem_data["status"] = "NOT_RESPONDING"
 
     def poll_pzem(self):
-        """Polls PZEM sensor telemetry over the serial interface safely."""
+        """Polls PZEM sensor telemetry safely."""
         if not self.is_connected or not self.ser:
             self.pzem_data["valid"] = False
             self.pzem_data["status"] = "OFFLINE"
@@ -196,64 +282,21 @@ class ESP32RelayBridge:
             try:
                 if not getattr(self.ser, "is_open", False):
                     return
-                self.ser.write(b"PZEM\n")
-                self.ser.flush()
-                time.sleep(0.08)
                 resp = ""
                 if self.ser.in_waiting > 0:
                     resp = self.ser.read_all().decode("utf-8", errors="ignore").strip()
+                if resp:
+                    self._parse_incoming_telemetry(resp)
 
-                for line in resp.split("\n"):
-                    line = line.strip()
-                    if line.startswith("PZEM:"):
-                        payload = line[5:].strip()
-                        try:
-                            parsed = json.loads(payload)
-                            if parsed.get("voltage") is not None:
-                                self.pzem_data["voltage"] = float(parsed["voltage"])
-                                self.pzem_data["current"] = float(parsed.get("current", 0.0) or 0.0)
-                                self.pzem_data["power"] = float(parsed.get("power", 0.0) or 0.0)
-                                self.pzem_data["energy"] = float(parsed.get("energy", 0.0) or 0.0)
-                                self.pzem_data["frequency"] = float(parsed.get("frequency", 50.0) or 50.0)
-                                self.pzem_data["power_factor"] = float(parsed.get("pf", 1.0) or 1.0)
-                                self.pzem_data["valid"] = bool(parsed.get("valid", False))
-                                self.pzem_data["status"] = "ONLINE" if self.pzem_data["valid"] else "NO_LOAD"
-                                self.pzem_data["last_read"] = time.time()
-                                return
-                        except Exception:
-                            pass
-
-                    # Also parse human-readable lines (e.g. Voltage: 230.20 V, Power: 195.60 W)
-                    if "Voltage:" in line and "V" in line:
-                        m = re.search(r"Voltage:\s*([\d\.]+)", line)
-                        if m:
-                            self.pzem_data["voltage"] = float(m.group(1))
-                            self.pzem_data["valid"] = True
-                            self.pzem_data["status"] = "ONLINE"
-                            self.pzem_data["last_read"] = time.time()
-                    if "Current:" in line and "A" in line:
-                        m = re.search(r"Current:\s*([\d\.]+)", line)
-                        if m:
-                            self.pzem_data["current"] = float(m.group(1))
-                    if "Power:" in line and "W" in line:
-                        m = re.search(r"Power:\s*([\d\.]+)", line)
-                        if m:
-                            self.pzem_data["power"] = float(m.group(1))
-                    if "Energy:" in line and "kWh" in line:
-                        m = re.search(r"Energy:\s*([\d\.]+)", line)
-                        if m:
-                            self.pzem_data["energy"] = float(m.group(1))
-                    if "Frequency:" in line and "Hz" in line:
-                        m = re.search(r"Frequency:\s*([\d\.]+)", line)
-                        if m:
-                            self.pzem_data["frequency"] = float(m.group(1))
-                    if "Power PF:" in line:
-                        m = re.search(r"Power PF:\s*([\d\.]+)", line)
-                        if m:
-                            self.pzem_data["power_factor"] = float(m.group(1))
-
-                if self.pzem_data.get("voltage") is not None and self.pzem_data["valid"]:
-                    return
+                # Send query if needed
+                if time.time() - self.pzem_data.get("last_read", 0) > 2.0:
+                    self.ser.write(b"PZEM\n")
+                    self.ser.flush()
+                    time.sleep(0.08)
+                    if self.ser.in_waiting > 0:
+                        resp = self.ser.read_all().decode("utf-8", errors="ignore").strip()
+                        if resp:
+                            self._parse_incoming_telemetry(resp)
             except Exception as e:
                 self.pzem_data["valid"] = False
                 self.pzem_data["status"] = f"ERROR: {e}"
@@ -298,6 +341,8 @@ class ESP32RelayBridge:
                         ack = ""
                         if self.ser.in_waiting > 0:
                             ack = self.ser.read_all().decode("utf-8", errors="ignore").strip()
+                            if ack:
+                                self._parse_incoming_telemetry(ack)
                         ack_str = f" | ACK: '{ack}'" if ack else ""
                         print(f"[ESP32 PHYSICAL RELAY] -> Sent '{cmd.strip()}' -> Relay {relay_id} [GPIO {gpio}: {level_str}] ==> {label} (Zones: {zones_str}){ack_str}")
                         return
