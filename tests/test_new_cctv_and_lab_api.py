@@ -89,8 +89,8 @@ def test_master_lab_status_structure(client):
         assert "vacancy_remaining_seconds" in z
 
     # Specific zone appliance assignments
-    assert data["zones"]["Z2"]["device"] == "Light 1"
-    assert data["zones"]["Z8"]["device"] == "Light 2"
+    assert data["zones"]["Z1"]["device"] == "Light 1"
+    assert data["zones"]["Z9"]["device"] == "Light 2"
 
     # 4. Appliances
     assert "appliances" in data
@@ -106,7 +106,7 @@ def test_master_lab_status_structure(client):
     # 6. PZEM
     assert "pzem" in data
     assert data["pzem"]["measured_device"] == "Light 1"
-    assert data["pzem"]["measured_zone"] == "Z2"
+    assert data["pzem"]["measured_zone"] == "Z1"
     assert "voltage" in data["pzem"]
     assert "current" in data["pzem"]
     assert "power" in data["pzem"]
@@ -122,13 +122,13 @@ def test_master_lab_sync_endpoint(client):
 
     sync_payload = {
         "zone_states": {
-            "Z2": {
+            "Z1": {
                 "occupied": True,
                 "occupants": [1],
                 "light_state": "ON",
                 "mode": "AUTO"
             },
-            "Z8": {
+            "Z9": {
                 "occupied": True,
                 "occupants": [2],
                 "light_state": "OFF",
@@ -136,8 +136,8 @@ def test_master_lab_sync_endpoint(client):
             }
         },
         "people": [
-            {"tracking_id": 1, "zone": "Z2", "stable_hand_count": 0, "mode": "AUTO", "gesture": "NONE"},
-            {"tracking_id": 2, "zone": "Z8", "stable_hand_count": 1, "mode": "MANUAL_OFF", "gesture": "ONE_HAND_RAISED"}
+            {"tracking_id": 1, "zone": "Z1", "stable_hand_count": 0, "mode": "AUTO", "gesture": "NONE"},
+            {"tracking_id": 2, "zone": "Z9", "stable_hand_count": 1, "mode": "MANUAL_OFF", "gesture": "ONE_HAND_RAISED"}
         ],
         "fps": 30.0,
         "camera_online": True,
@@ -149,7 +149,7 @@ def test_master_lab_sync_endpoint(client):
         },
         "pzem": {
             "measured_device": "Light 1",
-            "measured_zone": "Z2",
+            "measured_zone": "Z1",
             "voltage": 231.8,
             "current": 0.42,
             "power": 96.5,
@@ -170,14 +170,14 @@ def test_master_lab_sync_endpoint(client):
     st = status_res.get_json()
 
     assert st["people_count"] == 2
-    assert st["people"][0]["zone"] == "Z2"
+    assert st["people"][0]["zone"] == "Z1"
     assert st["people"][1]["mode"] == "MANUAL_OFF"
 
-    assert st["zones"]["Z2"]["occupied"] is True
-    assert st["zones"]["Z2"]["state"] == "ON"
-    assert st["zones"]["Z8"]["occupied"] is True
-    assert st["zones"]["Z8"]["state"] == "OFF"
-    assert st["zones"]["Z8"]["mode"] == "MANUAL_OFF"
+    assert st["zones"]["Z1"]["occupied"] is True
+    assert st["zones"]["Z1"]["state"] == "ON"
+    assert st["zones"]["Z9"]["occupied"] is True
+    assert st["zones"]["Z9"]["state"] == "OFF"
+    assert st["zones"]["Z9"]["mode"] == "MANUAL_OFF"
 
     assert st["appliances"]["light1"] == "ON"
     assert st["appliances"]["light2"] == "OFF"
@@ -217,7 +217,7 @@ def test_esp32_relay_bridge_pzem_handling():
     pzem = bridge.get_pzem_data()
 
     assert pzem["measured_device"] == "Light 1"
-    assert pzem["measured_zone"] == "Z2"
+    assert pzem["measured_zone"] == "Z1"
     # When offline in emulation, valid should be False
     assert pzem["valid"] is False
     assert pzem["voltage"] is None
@@ -238,7 +238,7 @@ def test_master_lab_vacancy_delay_api(client):
     # Push active vacancy timer state
     sync_payload = {
         "zone_states": {
-            "Z2": {
+            "Z1": {
                 "occupied": False,
                 "occupant_ids": [],
                 "light_state": "ON",
@@ -257,18 +257,18 @@ def test_master_lab_vacancy_delay_api(client):
     assert res.status_code == 200
     st = res.get_json()
 
-    z2 = st["zones"]["Z2"]
-    assert z2["zone"] == "Z2"
-    assert z2["occupied"] is False
-    assert z2["device"] == "Light 1"
-    assert z2["state"] == "ON"
-    assert z2["vacancy_timer_active"] is True
-    assert z2["vacancy_remaining_seconds"] == 7.4
+    z1 = st["zones"]["Z1"]
+    assert z1["zone"] == "Z1"
+    assert z1["occupied"] is False
+    assert z1["device"] == "Light 1"
+    assert z1["state"] == "ON"
+    assert z1["vacancy_timer_active"] is True
+    assert z1["vacancy_remaining_seconds"] == 7.4
 
-    # Now person re-enters Z2
+    # Now person re-enters Z1
     reenter_payload = {
         "zone_states": {
-            "Z2": {
+            "Z1": {
                 "occupied": True,
                 "occupant_ids": [1],
                 "light_state": "ON",
@@ -277,7 +277,7 @@ def test_master_lab_vacancy_delay_api(client):
                 "vacancy_remaining_seconds": 0.0
             }
         },
-        "people": [{"tracking_id": 1, "zone": "Z2"}],
+        "people": [{"tracking_id": 1, "zone": "Z1"}],
         "fps": 30.0,
         "camera_online": True
     }
@@ -285,10 +285,10 @@ def test_master_lab_vacancy_delay_api(client):
 
     res2 = c.get("/api/lab/status")
     st2 = res2.get_json()
-    z2_re = st2["zones"]["Z2"]
-    assert z2_re["zone"] == "Z2"
-    assert z2_re["occupied"] is True
-    assert z2_re["device"] == "Light 1"
-    assert z2_re["state"] == "ON"
-    assert z2_re["vacancy_timer_active"] is False
-    assert z2_re["vacancy_remaining_seconds"] == 0.0
+    z1_re = st2["zones"]["Z1"]
+    assert z1_re["zone"] == "Z1"
+    assert z1_re["occupied"] is True
+    assert z1_re["device"] == "Light 1"
+    assert z1_re["state"] == "ON"
+    assert z1_re["vacancy_timer_active"] is False
+    assert z1_re["vacancy_remaining_seconds"] == 0.0

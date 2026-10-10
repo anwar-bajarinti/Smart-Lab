@@ -36,8 +36,8 @@ class LabService:
 
         # 3x3 Zones defaults
         self.zone_device_mapping: Dict[str, str] = {
-            "Z2": "Light 1",
-            "Z8": "Light 2"
+            "Z1": "Light 1",
+            "Z9": "Light 2"
         }
 
         # Initialize default 9 zones
@@ -72,7 +72,7 @@ class LabService:
         # PZEM Single CT Configuration
         self.pzem: Dict[str, Any] = {
             "measured_device": "Light 1",
-            "measured_zone": "Z2",
+            "measured_zone": "Z1",
             "voltage": None,
             "current": None,
             "power": None,
@@ -150,15 +150,15 @@ class LabService:
                 }
 
             # Update appliances based on zones
-            z2_state = self.zones.get("Z2", {}).get("state", "OFF")
-            z8_state = self.zones.get("Z8", {}).get("state", "OFF")
-            self.appliances["light1"] = z2_state
-            self.appliances["light2"] = z8_state
+            z1_state = self.zones.get("Z1", {}).get("state", "OFF")
+            z9_state = self.zones.get("Z9", {}).get("state", "OFF")
+            self.appliances["light1"] = z1_state
+            self.appliances["light2"] = z9_state
 
             # If ESP32 mirror is active
             if not self.esp32["online"]:
-                self.esp32["relay1"] = z2_state
-                self.esp32["relay2"] = z8_state
+                self.esp32["relay1"] = z1_state
+                self.esp32["relay2"] = z9_state
 
     def update_hardware_state(
         self,
@@ -205,8 +205,8 @@ class LabService:
                             "vacancy_timer_active": getattr(z, "vacancy_timer_active", False),
                             "vacancy_remaining_seconds": round(float(getattr(z, "vacancy_remaining_seconds", 0.0)), 1)
                         }
-                self.appliances["light1"] = self.zones.get("Z2", {}).get("state", "OFF")
-                self.appliances["light2"] = self.zones.get("Z8", {}).get("state", "OFF")
+                self.appliances["light1"] = self.zones.get("Z1", {}).get("state", "OFF")
+                self.appliances["light2"] = self.zones.get("Z9", {}).get("state", "OFF")
 
             return {
                 "camera": {

@@ -26,11 +26,12 @@ class ESP32RelayBridge:
     and PZEM-004T AC energy telemetry.
     """
 
-    def __init__(self, config_path: str = "config/relay_mapping.json", port: Optional[str] = None):
+    def __init__(self, config_path: str = "config/relay_mapping.json", port: Optional[str] = None, strict_hardware: bool = False):
         self.config_path = config_path
         self.relay_configs: Dict[str, Any] = {}
         self.relay_states: Dict[str, bool] = {"1": False, "2": False}
         self.zone_to_relay: Dict[str, str] = {}
+        self.strict_hardware = strict_hardware
         
         self.serial_port: Optional[str] = port
         self.baud_rate: int = 115200
@@ -44,7 +45,7 @@ class ESP32RelayBridge:
 
         # PZEM Energy Monitoring Configuration
         self.pzem_measured_device: str = "Light 1"
-        self.pzem_measured_zone: str = "Z2"
+        self.pzem_measured_zone: str = "Z1"
         self.pzem_polling_interval: float = 1.5
         self.pzem_data: Dict[str, Any] = {
             "measured_device": self.pzem_measured_device,
@@ -99,7 +100,7 @@ class ESP32RelayBridge:
 
                     pzem_cfg = data.get("pzem", {})
                     self.pzem_measured_device = pzem_cfg.get("measured_device", "Light 1")
-                    self.pzem_measured_zone = pzem_cfg.get("measured_zone", "Z2")
+                    self.pzem_measured_zone = pzem_cfg.get("measured_zone", "Z1")
                     self.pzem_polling_interval = float(pzem_cfg.get("polling_interval_sec", 1.5))
                     self.pzem_data["measured_device"] = self.pzem_measured_device
                     self.pzem_data["measured_zone"] = self.pzem_measured_zone
@@ -108,15 +109,17 @@ class ESP32RelayBridge:
                 print(f"[RelayBridge] Error reading {self.config_path}: {e}")
 
         # Fallback defaults
-        self.zone_to_relay = {"Z2": "1", "Z8": "2"}
+        self.zone_to_relay = {"Z1": "1", "Z9": "2"}
         self.relay_configs = {
-            "1": {"zones": ["Z2"], "gpio": 22, "label": "Real Light 1", "active_high": True},
-            "2": {"zones": ["Z8"], "gpio": 23, "label": "Real Light 2", "active_high": True}
+            "1": {"zones": ["Z1"], "gpio": 22, "label": "Real Light 1", "active_high": True},
+            "2": {"zones": ["Z9"], "gpio": 23, "label": "Real Light 2", "active_high": True}
         }
 
     def _init_connection(self):
         """Attempts to establish connection with physical ESP32."""
         if not HAS_SERIAL:
+            if self.strict_hardware:
+                raise RuntimeError("pyserial is unavailable, so the real ESP32 hardware path cannot start in strict hardware mode.")
             print("[RelayBridge] pyserial not available. Running in Console Emulation mode.")
             return
 
@@ -157,6 +160,12 @@ class ESP32RelayBridge:
                     return
                 except Exception as ex:
                     print(f"[RelayBridge] Could not open {port_to_open}: {ex}")
+
+        if self.strict_hardware:
+            port_label = self.serial_port or "configured serial port"
+            raise RuntimeError(
+                f"strict hardware mode requires a real ESP32 connection on {port_label}; emulation is disabled for the live launcher."
+            )
 
         print("[RelayBridge] No physical ESP32 COM port detected. Running in HARDWARE EMULATION mode.")
         print("[RelayBridge] (Commands will be printed live to console and state tracked).")

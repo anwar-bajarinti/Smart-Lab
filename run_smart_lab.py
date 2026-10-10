@@ -22,6 +22,11 @@ Usage:
     python run_smart_lab.py --camera 0 --port COM4
     python run_smart_lab.py --no-gui  (Headless mode)
 
+Hardware requirement:
+    This launcher requires the ESP32 to be connected on COM4 with the real
+    firmware from esp32/smart_lab_relay_controller/smart_lab_relay_controller.ino.
+    If COM4 is unavailable, startup stops instead of running simulated relays.
+
 Safe Shutdown:
     Press Ctrl+C or 'q' in the camera window.
     Both physical relays are unconditionally turned OFF.
@@ -96,31 +101,44 @@ class SmartLabRunner:
 
         # 2. Check COM4 Port & Serial Contention
         ports = [p.device for p in serial.tools.list_ports.comports()]
-        if self.serial_port in ports:
-            # Check if port is locked by Arduino IDE
-            try:
-                test_s = serial.Serial(self.serial_port, 115200, timeout=0.2)
-                test_s.close()
-            except serial.SerialException as se:
-                if "PermissionError" in str(se) or "Access is denied" in str(se):
-                    print(f"[{Colors.YELLOW}ALERT{Colors.RESET}] {self.serial_port} is LOCKED by another program!")
-                    print("        -> Please CLOSE the Arduino IDE Serial Monitor so Smart Lab can connect to hardware.")
-                    print("        -> Retrying in 2 seconds...")
-                    time.sleep(2.0)
+        print(f"[CHECK] Detected serial ports: {ports if ports else 'NONE'}")
+
+        if self.serial_port.upper() not in [p.upper() for p in ports]:
+            print(f"[{Colors.RED}FAIL{Colors.RESET}] ESP32 is not available on {self.serial_port}.")
+            print("        -> Connect the ESP32, verify the CP210x/USB-UART driver is installed, and upload")
+            print("           esp32/smart_lab_relay_controller/smart_lab_relay_controller.ino before starting Smart Lab.")
+            print("        -> This launcher intentionally refuses to run simulated relays for the live hardware workflow.")
+            raise SystemExit(1)
+
+        # Check if port is locked by Arduino IDE
+        try:
+            test_s = serial.Serial(self.serial_port, 115200, timeout=0.2)
+            test_s.close()
+        except serial.SerialException as se:
+            if "PermissionError" in str(se) or "Access is denied" in str(se):
+                print(f"[{Colors.YELLOW}ALERT{Colors.RESET}] {self.serial_port} is LOCKED by another program!")
+                print("        -> Please CLOSE the Arduino IDE Serial Monitor so Smart Lab can connect to hardware.")
+                print("        -> Retrying in 2 seconds...")
+                time.sleep(2.0)
 
         # 3. Connect to Hardware Bridge (Relays + PZEM)
         try:
-            self.relay_bridge = ESP32RelayBridge(config_path="config/relay_mapping.json", port=self.serial_port)
+            self.relay_bridge = ESP32RelayBridge(
+                config_path="config/relay_mapping.json",
+                port=self.serial_port,
+                strict_hardware=True,
+            )
             if self.relay_bridge.is_connected:
                 print(f"[{Colors.GREEN}OK{Colors.RESET}] ESP32 {self.serial_port}")
-                print(f"[{Colors.GREEN}OK{Colors.RESET}] Relay Controller (GPIO 22 -> Light 1 | GPIO 23 -> Light 2)")
-                print(f"[{Colors.GREEN}OK{Colors.RESET}] PZEM (Active load on Light 1 / Zone Z2)")
+                print(f"[{Colors.GREEN}OK{Colors.RESET}] Relay Controller (GPIO 22 -> Zone Z1 | GPIO 23 -> Zone Z9)")
+                print(f"[{Colors.GREEN}OK{Colors.RESET}] PZEM (Active load on Light 1 / Zone Z1)")
             else:
-                print(f"[{Colors.YELLOW}NOTE{Colors.RESET}] ESP32 running in Emulation mode ({self.serial_port} not opened)")
-                print(f"[{Colors.GREEN}OK{Colors.RESET}] Relay Controller (Emulation)")
-                print(f"[{Colors.GREEN}OK{Colors.RESET}] PZEM (Standby)")
+                print(f"[{Colors.RED}FAIL{Colors.RESET}] ESP32 serial connection did not open on {self.serial_port}.")
+                print("        -> Please upload the correct firmware to the ESP32 and retry.")
+                raise SystemExit(1)
         except Exception as e:
             print(f"[{Colors.RED}FAIL{Colors.RESET}] ESP32 Link: {e}")
+            raise SystemExit(1)
 
         # 4. Initialize Single-Capture Camera & Vision Pipeline
         try:
@@ -219,18 +237,18 @@ class SmartLabRunner:
                 if now - last_telemetry_print >= 2.0:
                     last_telemetry_print = now
                     occupied_zones = [zid for zid, z in zone_states.items() if z.get("occupied")]
-                    z2_vac = zone_states.get("Z2", {}).get("vacancy_remaining_seconds", 0.0)
-                    z8_vac = zone_states.get("Z8", {}).get("vacancy_remaining_seconds", 0.0)
+                    z1_vac = zone_states.get("Z1", {}).get("vacancy_remaining_seconds", 0.0)
+                    z9_vac = zone_states.get("Z9", {}).get("vacancy_remaining_seconds", 0.0)
                     r1 = "ON" if self.relay_bridge and self.relay_bridge.relay_states.get("1") else "OFF"
                     r2 = "ON" if self.relay_bridge and self.relay_bridge.relay_states.get("2") else "OFF"
                     pzem = self.relay_bridge.get_pzem_data() if self.relay_bridge else {}
                     pzem_str = f"{pzem.get('voltage')}V | {pzem.get('power')}W" if pzem.get("valid") else (pzem.get("status", "Standby"))
                     vac_str = ""
-                    if z2_vac > 0:
-                        vac_str += f" | Z2 OFF in {z2_vac:.1f}s"
-                    if z8_vac > 0:
-                        vac_str += f" | Z8 OFF in {z8_vac:.1f}s"
-                    print(f"[{Colors.CYAN}LIVE{Colors.RESET}] FPS: {self.controller.fps:.1f} | People: {len(people)} | Occupied: {occupied_zones or 'None'} | R1(Z2): {r1} | R2(Z8): {r2}{vac_str} | PZEM: {pzem_str}")
+                    if z1_vac > 0:
+                        vac_str += f" | Z1 OFF in {z1_vac:.1f}s"
+                    if z9_vac > 0:
+                        vac_str += f" | Z9 OFF in {z9_vac:.1f}s"
+                    print(f"[{Colors.CYAN}LIVE{Colors.RESET}] FPS: {self.controller.fps:.1f} | People: {len(people)} | Occupied: {occupied_zones or 'None'} | R1(Z1): {r1} | R2(Z9): {r2}{vac_str} | PZEM: {pzem_str}")
 
                 # 7. Display Local OpenCV Diagnostic Window if enabled
                 if not self.no_gui:

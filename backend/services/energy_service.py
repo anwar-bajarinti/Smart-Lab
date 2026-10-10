@@ -32,7 +32,7 @@ class EnergyService:
                 frequency=pzem.get("frequency"),
                 power_factor=pzem.get("power_factor"),
                 measured_device=pzem.get("measured_device", "Light 1"),
-                measured_zone=pzem.get("measured_zone", "Z2"),
+                measured_zone=pzem.get("measured_zone", "Z1"),
                 is_live_hardware=True,
                 status=pzem.get("status", "ONLINE"),
                 timestamp=time.time()

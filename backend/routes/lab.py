@@ -29,7 +29,7 @@ def get_lab_status():
             "esp32": {"online": False, "relay1": "OFF", "relay2": "OFF"},
             "pzem": {
                 "measured_device": "Light 1",
-                "measured_zone": "Z2",
+                "measured_zone": "Z1",
                 "voltage": None,
                 "current": None,
                 "power": None,

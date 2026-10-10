@@ -5,12 +5,12 @@ SMART LAB AUTOMATION — UNIFIED FULL SYSTEM TEST RUNNER
 =============================================================================
 Executes complete automated verification across the entire project in ONE command:
  1. Python environment & required dependencies
- 2. Full pytest automated test suite (38 unit & integration tests)
+ 2. Full pytest automated test suite (39 unit & integration tests)
  3. 3x3 Zone matrix & coordinate clamping logic
  4. Person detection & tracking keypoint structures
  5. Biomechanical gesture detection (0 hands AUTO, 1 hand MANUAL_OFF, 2 hands MANUAL_ON)
  6. Real-time 10-second non-blocking vacancy delay & re-entry cancellation
- 7. Relay mapping configuration (GPIO 22 -> Relay 1 -> Light 1 -> Z2; GPIO 23 -> Relay 2 -> Light 2 -> Z8)
+ 7. Relay mapping configuration (GPIO 22 -> Relay 1 -> Light 1 -> Z1; GPIO 23 -> Relay 2 -> Light 2 -> Z9)
  8. Backend Flask Master Status API (/api/lab/status)
  9. CCTV raw video stream distribution (/api/cctv/stream)
 10. Local testing dashboard availability (frontend/index.html)
@@ -178,9 +178,9 @@ def test_vacancy_delay_logic() -> Tuple[bool, str]:
     if VACANCY_GRACE_PERIOD != 10.0:
         return False, f"VACANCY_GRACE_PERIOD is {VACANCY_GRACE_PERIOD}, expected 10.0"
 
-    z = ZoneState("Z2", leave_timeout_sec=10.0)
+    z = ZoneState("Z1", leave_timeout_sec=10.0)
     p = PersonState(tracking_id=1)
-    p.zone = "Z2"
+    p.zone = "Z1"
 
     t0 = 100.0
     z.update([p], current_time=t0)
@@ -230,12 +230,12 @@ def test_relay_config_integrity() -> Tuple[bool, str]:
     r1 = relays.get("1", {})
     r2 = relays.get("2", {})
 
-    if r1.get("gpio") != 22 or "Z2" not in (r1.get("zones") or [r1.get("zone")]):
-        return False, "Relay 1 mismatch: expected GPIO 22 and Zone Z2"
-    if r2.get("gpio") != 23 or "Z8" not in (r2.get("zones") or [r2.get("zone")]):
-        return False, "Relay 2 mismatch: expected GPIO 23 and Zone Z8"
+    if r1.get("gpio") != 22 or "Z1" not in (r1.get("zones") or [r1.get("zone")]):
+        return False, "Relay 1 mismatch: expected GPIO 22 and Zone Z1"
+    if r2.get("gpio") != 23 or "Z9" not in (r2.get("zones") or [r2.get("zone")]):
+        return False, "Relay 2 mismatch: expected GPIO 23 and Zone Z9"
 
-    return True, "Relay 1 (GPIO 22) -> Z2 / Light 1 | Relay 2 (GPIO 23) -> Z8 / Light 2"
+    return True, "Relay 1 (GPIO 22) -> Z1 / Light 1 | Relay 2 (GPIO 23) -> Z9 / Light 2"
 
 
 # =============================================================================
@@ -256,8 +256,8 @@ def test_backend_master_api() -> Tuple[bool, str]:
             if key not in data:
                 return False, f"Missing key '{key}' in master status"
 
-        z2 = data["zones"].get("Z2", {})
-        if "vacancy_timer_active" not in z2 or "vacancy_remaining_seconds" not in z2:
+        z1 = data["zones"].get("Z1", {})
+        if "vacancy_timer_active" not in z1 or "vacancy_remaining_seconds" not in z1:
             return False, "Vacancy timer fields missing in zone payload"
 
         return True, "Master status schema valid with live camera, zones, esp32, pzem"

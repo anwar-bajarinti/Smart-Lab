@@ -91,7 +91,7 @@
       "col": 2,
       "name": "Lab Entry & Exit",
       "appliances": {
-        "light": { "id": "L9", "relay_id": 17, "gpio": null, "type": "relay" },
+        "light": { "id": "L9", "relay_id": 2, "gpio": 23, "type": "relay" },
         "fan": { "id": "F9", "relay_id": 18, "gpio": null, "dimmer_channel": 9, "type": "dimmer" }
       }
     }

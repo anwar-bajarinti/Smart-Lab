@@ -28,9 +28,9 @@ Deterministic Multi-Person Arbitration (MANUAL_ON > MANUAL_OFF > AUTO)
 Non-Blocking Zone Vacancy Delay (10.0-Second Grace Period)
       ↓
 ESP32 Hardware Bridge (COM4 @ 115200 baud)
-      ├─ Relay 1 (GPIO 22, Active HIGH) → Real Light 1 (Zone Z2)
-      ├─ Relay 2 (GPIO 23, Active HIGH) → Real Light 2 (Zone Z8)
-      └─ PZEM-004T v3.0 (GPIO 16 RX / GPIO 17 TX) → AC Electrical Telemetry (Light 1 in Z2)
+      ├─ Relay 1 (GPIO 22, Active HIGH) → Real Light 1 (Zone Z1)
+      ├─ Relay 2 (GPIO 23, Active HIGH) → Real Light 2 (Zone Z9)
+      └─ PZEM-004T v3.0 (GPIO 25 RX / GPIO 33 TX) → AC Electrical Telemetry (Light 1 in Z1)
       ↓
 Flask Master Backend & Clean CCTV Video Distributor (Port 5000)
       ├─ GET /api/cctv/stream → Clean MJPEG video stream (raw, unannotated)
@@ -49,13 +49,13 @@ Flask Master Backend & Clean CCTV Video Distributor (Port 5000)
    - 2 hands raised for $\ge 0.8$s $\to$ `MANUAL_ON` mode (appliances turn ON, overriding manual off).
 4. **Deterministic Multi-Person Arbitration**: `MANUAL_ON` > `MANUAL_OFF` > `AUTO`. Multiple people in different zones operate with complete isolation.
 5. **Real-Time 10-Second Vacancy Delay**: When a zone becomes empty, the light remains ON for a 10.0-second grace period. If someone enters before 10s, the timer is cancelled and the light stays ON. If empty for the full 10s, the light turns OFF, manual override clears, and the zone safely returns to `AUTO`.
-6. **Physical ESP32 Dual Relay Switching**: Controls physical AC lights through active-HIGH relays on GPIO 22 and GPIO 23.
-7. **PZEM-004T AC Energy Telemetry**: Non-blocking serial telemetry measuring Voltage, Current, Active Power, Energy, Frequency, and Power Factor on Light 1 (Zone Z2).
+6. **Physical ESP32 Dual Relay Switching**: Controls physical AC lights through active-HIGH relays on GPIO 22 and GPIO 23 using the final hardware mapping: Zone Z1 -> Relay 1 / GPIO 22; Zone Z9 -> Relay 2 / GPIO 23.
+7. **PZEM-004T AC Energy Telemetry**: Non-blocking serial telemetry measuring Voltage, Current, Active Power, Energy, Frequency, and Power Factor on Light 1 (Zone Z1).
 8. **Clean CCTV Stream Endpoint**: Distributes raw, unannotated video feed at `/api/cctv/stream` without visual bounding boxes or grid lines.
 9. **Unified Master Status API**: Real-time snapshot at `/api/lab/status` delivering camera state, people tracking, 3×3 zone states with vacancy timers, appliance states, ESP32 connection, and PZEM metrics.
 10. **Two-Page Test Dashboard**: Clean local UI featuring Page 1 (Live CCTV Stream) and Page 2 (Smart Lab Monitoring & 3×3 Grid).
 11. **One-Command Automated Verification**: Unified runner (`python run_full_test.py` or `.\run_full_test.ps1`) executing all 12 system verification stages.
-12. **One-Command Master Live System Runner**: Single entrypoint (`python run_smart_lab.py`) coordinating webcam, YOLOv8 pose, ByteTrack, 3×3 zones, 10s vacancy delay, ESP32 relays (COM4), PZEM telemetry, Flask REST API, clean CCTV MJPEG distributor, and local dashboard with unconditional safety shutdown.
+12. **One-Command Master Live System Runner**: Single entrypoint (`python run_smart_lab.py`) coordinating webcam, YOLOv8 pose, ByteTrack, 3×3 zones, 10s vacancy delay, real ESP32 relays on COM4 mapped to Z1/Z9, PZEM telemetry, Flask REST API, clean CCTV MJPEG distributor, and local dashboard with unconditional safety shutdown.
 
 ---
 
@@ -87,15 +87,15 @@ Flask Master Backend & Clean CCTV Video Distributor (Port 5000)
 - **Layout**:
   $$\begin{matrix} Z_1 & Z_2 & Z_3 \\ Z_4 & Z_5 & Z_6 \\ Z_7 & Z_8 & Z_9 \end{matrix}$$
 - **Mapping**:
-  - $Z_1$: Top-Left
-  - $Z_2$: Top-Center (**Primary control zone for Light 1 / Relay 1**)
+  - $Z_1$: Top-Left (**Primary control zone for Light 1 / Relay 1 / GPIO 22**)
+  - $Z_2$: Top-Center
   - $Z_3$: Top-Right
   - $Z_4$: Middle-Left
   - $Z_5$: Center
   - $Z_6$: Middle-Right
   - $Z_7$: Bottom-Left
-  - $Z_8$: Bottom-Center (**Primary control zone for Light 2 / Relay 2**)
-  - $Z_9$: Bottom-Right
+  - $Z_8$: Bottom-Center
+  - $Z_9$: Bottom-Right (**Primary control zone for Light 2 / Relay 2 / GPIO 23**)
 - **Localization Method**: Sub-pixel midpoint between Left Ankle (keypoint 15) and Right Ankle (keypoint 16). Fallback to bottom-center of bounding box if ankles occluded.
 
 ---
@@ -120,7 +120,7 @@ Flask Master Backend & Clean CCTV Video Distributor (Port 5000)
   - If any occupant in zone signals `MANUAL_ON` $\to$ Zone state is `MANUAL_ON` (Light ON).
   - Else if any occupant signals `MANUAL_OFF` $\to$ Zone state is `MANUAL_OFF` (Light OFF).
   - Else if occupants are present $\to$ Zone state is `AUTO` (Light ON).
-- **Cross-Zone Independence**: A gesture performed in $Z_2$ strictly controls Light 1 and never affects $Z_8$ or Light 2. Moving between zones resets the person's mode to `AUTO` upon arrival in the new zone.
+- **Cross-Zone Independence**: A gesture performed in $Z_1$ strictly controls Light 1 and never affects $Z_9$ or Light 2. Moving between zones resets the person's mode to `AUTO` upon arrival in the new zone.
 
 ---
 
@@ -148,18 +148,18 @@ Flask Master Backend & Clean CCTV Video Distributor (Port 5000)
 ## GPIO Mapping
 | Peripheral | ESP32 GPIO | Logic Level | Hardware Target | Primary Zone | Secondary Zones |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Relay 1** | **GPIO 22** | **Active HIGH** (`1=ON, 0=OFF`) | **Real Light 1** | **Z2** | Z1, Z4, Z7 |
-| **Relay 2** | **GPIO 23** | **Active HIGH** (`1=ON, 0=OFF`) | **Real Light 2** | **Z8** | Z3, Z6, Z9 |
-| **PZEM RX** | **GPIO 16** | Serial TTL (3.3V) | PZEM-004T TX | Z2 (Light 1) | N/A |
-| **PZEM TX** | **GPIO 17** | Serial TTL (3.3V) | PZEM-004T RX | Z2 (Light 1) | N/A |
+| **Relay 1** | **GPIO 22** | **Active HIGH** (`1=ON, 0=OFF`) | **Real Light 1** | **Z1** | None (direct mapping) |
+| **Relay 2** | **GPIO 23** | **Active HIGH** (`1=ON, 0=OFF`) | **Real Light 2** | **Z9** | None (direct mapping) |
+| **PZEM RX** | **GPIO 25** | Serial TTL (3.3V) | PZEM-004T TX | Z1 (Light 1) | N/A |
+| **PZEM TX** | **GPIO 33** | Serial TTL (3.3V) | PZEM-004T RX | Z1 (Light 1) | N/A |
 | **Status LED** | **GPIO 2** | Active HIGH pulse | Onboard RX Flash | N/A | Diagnostic Only |
 
 ---
 
 ## PZEM
 - **Model**: Peacefair PZEM-004T v3.0 AC Multi-function Energy Meter.
-- **UART Pins**: ESP32 HardwareSerial 2 (GPIO 16 RX, GPIO 17 TX) @ 9600 baud.
-- **Measured Load**: Single physical Current Transformer (CT) clamped exclusively on the AC mains line of **Light 1 (Zone Z2)**.
+- **UART Pins**: ESP32 SoftwareSerial / HardwareSerial (GPIO 25 RX, GPIO 33 TX) @ 9600 baud.
+- **Measured Load**: Single physical Current Transformer (CT) clamped exclusively on the AC mains line of **Light 1 (Zone Z1)**.
 - **Integration Status**: Fully operational non-blocking polling thread in ESP32 firmware and Python bridge.
 - **Telemetry Metrics**:
   - Voltage: ~231–233 V AC
@@ -260,11 +260,11 @@ SMART LAB AUTOMATION — COMPLETE SYSTEM VERIFICATION
 ====================================================================
 [01/12] Python Environment & Packages            [PASS] (Python 3.13.1 | All core dependencies installed)
 [02/12] Automated Test Suite (pytest)            [PASS] (38 passed in 10.07s)
-[03/12] 3x3 Physical Zone Matrix                 [PASS] (All 9 zones (Z1..Z9) calibrated; Z2=Top-Center, Z8=Bottom-Center)
+[03/12] 3x3 Physical Zone Matrix                 [PASS] (All 9 zones (Z1..Z9) calibrated; Z1=Top-Left, Z9=Bottom-Right)
 [04/12] Person Tracking & Ankle Midpoint         [PASS] (Sub-pixel ankle midpoint floor tracking verified)
 [05/12] Biomechanical Gesture Debounce           [PASS] (0 Hands -> AUTO | 1 Hand -> MANUAL_OFF | 2 Hands -> MANUAL_ON)
 [06/12] 10-Second Vacancy Delay Logic            [PASS] (10.0s delay confirmed: ON at 5s -> OFF at 10s -> Cancel on re-entry)
-[07/12] Relay Mapping Configuration              [PASS] (Relay 1 (GPIO 22) -> Z2 / Light 1 | Relay 2 (GPIO 23) -> Z8 / Light 2)
+[07/12] Relay Mapping Configuration              [PASS] (Relay 1 (GPIO 22) -> Z1 / Light 1 | Relay 2 (GPIO 23) -> Z9 / Light 2)
 [08/12] Master Status API (/api/lab/status)      [PASS] (Master status schema valid with live camera, zones, esp32, pzem)
 [09/12] Clean CCTV Stream (/api/cctv/stream)     [PASS] (HTTP 200 MJPEG raw stream active (clean, unannotated))
 [10/12] Local Test Dashboard UI (HTML)           [PASS] (Dashboard served with 3x3 interactive grid & vacancy countdown)

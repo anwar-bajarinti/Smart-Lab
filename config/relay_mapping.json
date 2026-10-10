@@ -5,20 +5,20 @@
   "gesture_stability_sec": 0.8,
   "relays": {
     "1": {
-      "zone": "Z2",
-      "zones": ["Z2", "Z1", "Z4", "Z7"],
+      "zone": "Z1",
+      "zones": ["Z1"],
       "gpio": 22,
       "label": "Real Light 1 (Relay 1)",
       "active_high": true,
-      "description": "Controlled by Left & Top-Center Zones (Z2, Z1, Z4, Z7) via GPIO 22"
+      "description": "Mapped directly to Zone Z1 via GPIO 22"
     },
     "2": {
-      "zone": "Z8",
-      "zones": ["Z8", "Z3", "Z6", "Z9"],
+      "zone": "Z9",
+      "zones": ["Z9"],
       "gpio": 23,
       "label": "Real Light 2 (Relay 2)",
       "active_high": true,
-      "description": "Controlled by Right & Bottom-Center Zones (Z8, Z3, Z6, Z9) via GPIO 23"
+      "description": "Mapped directly to Zone Z9 via GPIO 23"
     }
   },
   "status_led": {
@@ -39,8 +39,8 @@
   },
   "pzem": {
     "measured_device": "Light 1",
-    "measured_zone": "Z2",
-    "description": "Single PZEM-004T physical CT sensor connected to Light 1 in Zone Z2",
+    "measured_zone": "Z1",
+    "description": "Single PZEM-004T physical CT sensor connected to Light 1 in Zone Z1",
     "polling_interval_sec": 1.5
   }
 }

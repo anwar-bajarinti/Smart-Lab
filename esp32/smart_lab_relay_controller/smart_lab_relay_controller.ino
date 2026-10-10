@@ -8,8 +8,8 @@
  
  PIN CONFIGURATION:
  ------------------------------------------------------------------------------
-  Relay 1 (Light 1 / Zone Z2)   : GPIO 22 (Active HIGH: HIGH = ON, LOW = OFF)
-  Relay 2 (Light 2 / Zone Z8)   : GPIO 23 (Active HIGH: HIGH = ON, LOW = OFF)
+  Relay 1 (Light 1 / Zone Z1)   : GPIO 22 (Active HIGH: HIGH = ON, LOW = OFF)
+  Relay 2 (Light 2 / Zone Z9)   : GPIO 23 (Active HIGH: HIGH = ON, LOW = OFF)
   Status LED (Diagnostic Pulse) : GPIO 2  (Onboard LED; NOT an appliance)
   PZEM-004T RX (ESP32 RX)       : GPIO 25 (HardwareSerial 1 RX <- PZEM TX)
   PZEM-004T TX (ESP32 TX)       : GPIO 33 (HardwareSerial 1 TX -> PZEM RX)
@@ -43,8 +43,8 @@
 // ============================================================================
 // HARDWARE PIN DEFINITIONS
 // ============================================================================
-#define RELAY_1_PIN       22  // Controls REAL LIGHT 1 through Relay 1 (Zone Z2)
-#define RELAY_2_PIN       23  // Controls REAL LIGHT 2 through Relay 2 (Zone Z8)
+#define RELAY_1_PIN       22  // Controls REAL LIGHT 1 through Relay 1 (Zone Z1)
+#define RELAY_2_PIN       23  // Controls REAL LIGHT 2 through Relay 2 (Zone Z9)
 #define STATUS_LED_PIN     2  // Onboard Diagnostic LED (NOT an appliance)
 
 #define PZEM_RX_PIN       25  // ESP32 RX <- PZEM TX
@@ -99,13 +99,13 @@ void pulseStatusLed() {
 void setRelay1(bool state) {
   relay1State = state;
   digitalWrite(RELAY_1_PIN, state ? RELAY_ON_LEVEL : RELAY_OFF_LEVEL);
-  Serial.printf("[ACK] Relay 1 (GPIO %d) -> %s [Z2 / Light 1]\n", RELAY_1_PIN, state ? "ON" : "OFF");
+  Serial.printf("[ACK] Relay 1 (GPIO %d) -> %s [Z1 / Light 1]\n", RELAY_1_PIN, state ? "ON" : "OFF");
 }
 
 void setRelay2(bool state) {
   relay2State = state;
   digitalWrite(RELAY_2_PIN, state ? RELAY_ON_LEVEL : RELAY_OFF_LEVEL);
-  Serial.printf("[ACK] Relay 2 (GPIO %d) -> %s [Z8 / Light 2]\n", RELAY_2_PIN, state ? "ON" : "OFF");
+  Serial.printf("[ACK] Relay 2 (GPIO %d) -> %s [Z9 / Light 2]\n", RELAY_2_PIN, state ? "ON" : "OFF");
 }
 
 // ============================================================================
@@ -264,8 +264,8 @@ void setup() {
   Serial.println("\n==================================================");
   Serial.println(" SMART LAB - ESP32 DUAL RELAY & PZEM CONTROLLER");
   Serial.println("==================================================");
-  Serial.println(" Relay 1 (Light 1 / Z2) : GPIO 22 (Active HIGH)");
-  Serial.println(" Relay 2 (Light 2 / Z8) : GPIO 23 (Active HIGH)");
+  Serial.println(" Relay 1 (Light 1 / Z1) : GPIO 22 (Active HIGH)");
+  Serial.println(" Relay 2 (Light 2 / Z9) : GPIO 23 (Active HIGH)");
   Serial.println(" Status LED             : GPIO 2  (Diagnostic Pulse)");
   Serial.println(" PZEM UART              : RX=GPIO25, TX=GPIO33");
   Serial.println(" Initial Relay State    : BOTH RELAYS OFF (SAFE)");

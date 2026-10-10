@@ -267,9 +267,9 @@ class VisionController:
 
             # Zone label with physical relay mapping highlight
             hw_tag = ""
-            if zid == "Z2":
+            if zid == "Z1":
                 hw_tag = " [R1]"
-            elif zid == "Z8":
+            elif zid == "Z9":
                 hw_tag = " [R2]"
             cv2.putText(panel, f"{zid}{hw_tag}", (18, y + 23), cv2.FONT_HERSHEY_SIMPLEX, 0.44, (255, 255, 255), 2 if hw_tag else 1, cv2.LINE_AA)
 
