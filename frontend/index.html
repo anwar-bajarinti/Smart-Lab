@@ -741,7 +741,7 @@
             <div class="relay-item">
               <div>
                 <div class="relay-label">RELAY 1 (GPIO 22)</div>
-                <div class="relay-sub">Real Light 1 (Zone Z2) — Active HIGH</div>
+                <div class="relay-sub">Real Light 1 (Zone Z1) — Active HIGH</div>
               </div>
               <div id="relay1StatusBadge" class="badge badge-offline">OFF</div>
             </div>
@@ -749,7 +749,7 @@
             <div class="relay-item">
               <div>
                 <div class="relay-label">RELAY 2 (GPIO 23)</div>
-                <div class="relay-sub">Real Light 2 (Zone Z8) — Active HIGH</div>
+                <div class="relay-sub">Real Light 2 (Zone Z9) — Active HIGH</div>
               </div>
               <div id="relay2StatusBadge" class="badge badge-offline">OFF</div>
             </div>
@@ -773,7 +773,7 @@
               </div>
               <div>
                 <strong>Zone:</strong>
-                <span id="pzemTargetZone" style="color:var(--warning); font-weight:700;">Z2</span>
+                <span id="pzemTargetZone" style="color:var(--warning); font-weight:700;">Z1</span>
               </div>
             </div>
 
@@ -1017,7 +1017,7 @@
         if (data.pzem) {
           const p = data.pzem;
           document.getElementById('pzemTargetDevice').innerText = p.measured_device || 'Light 1';
-          document.getElementById('pzemTargetZone').innerText = p.measured_zone || 'Z2';
+          document.getElementById('pzemTargetZone').innerText = p.measured_zone || 'Z1';
 
           const pzemBadge = document.getElementById('pzemStatusBadge');
           if (p.valid) {
