@@ -31,8 +31,11 @@
 
 ## 📁 Project Structure
 
+This tree is relative to `hardware/` in the repository. The repository-wide
+`.gitignore` is maintained at the repository root.
+
 ```
-E:\Smart-Lab
+hardware/
 ├── vision/                         # Real-Time Computer Vision Core
 │   ├── __init__.py
 │   ├── camera.py                   # Thread-safe OpenCV capture with mirroring
@@ -95,19 +98,20 @@ E:\Smart-Lab
 │
 ├── requirements.txt                # Python dependencies
 ├── README.md                       # Master project overview
-├── SETUP.md                        # Quickstart setup instructions
-└── .gitignore
+└── SETUP.md                        # Quickstart setup instructions
 ```
 
 ---
 
 ## ⚡ Quick Start
 
+Run these commands from `hardware/` (or first change to that directory from
+the repository root).
+
 ### 1. Run Automated Tests
 ```powershell
 python -m pytest tests -v
 ```
-*(All 21 unit and integration tests will run and pass).*
 
 ### 2. Start the Backend API & Web Dashboard
 ```powershell
