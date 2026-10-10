@@ -72,11 +72,19 @@ def is_port_in_use(port: int, host: str = "127.0.0.1") -> bool:
 
 
 class SmartLabRunner:
-    def __init__(self, camera_idx: int = 0, serial_port: str = "COM4", api_port: int = 5000, no_gui: bool = False):
+    def __init__(
+        self,
+        camera_idx: int = 0,
+        serial_port: str = "COM4",
+        api_port: int = 5000,
+        no_gui: bool = False,
+        allow_emulation: bool = False
+    ):
         self.camera_idx = camera_idx
         self.serial_port = serial_port
         self.api_port = api_port
         self.no_gui = no_gui
+        self.allow_emulation = allow_emulation
 
         self.running = True
         self.relay_bridge: Optional[ESP32RelayBridge] = None
@@ -99,46 +107,57 @@ class SmartLabRunner:
             print(f"[{Colors.RED}FAIL{Colors.RESET}] Backend API: {e}")
             sys.exit(1)
 
-        # 2. Check COM4 Port & Serial Contention
+        # 2. Check COM4 Port & Connect to Hardware Bridge (with dynamic reconnect polling)
         ports = [p.device for p in serial.tools.list_ports.comports()]
         print(f"[CHECK] Detected serial ports: {ports if ports else 'NONE'}")
 
-        if self.serial_port.upper() not in [p.upper() for p in ports]:
-            print(f"[{Colors.RED}FAIL{Colors.RESET}] ESP32 is not available on {self.serial_port}.")
-            print("        -> Connect the ESP32, verify the CP210x/USB-UART driver is installed, and upload")
-            print("           esp32/smart_lab_relay_controller/smart_lab_relay_controller.ino before starting Smart Lab.")
-            print("        -> This launcher intentionally refuses to run simulated relays for the live hardware workflow.")
-            raise SystemExit(1)
+        max_attempts = 15 if not self.allow_emulation else 1
+        retry_delay = 2.0
 
-        # Check if port is locked by Arduino IDE
-        try:
-            test_s = serial.Serial(self.serial_port, 115200, timeout=0.2)
-            test_s.close()
-        except serial.SerialException as se:
-            if "PermissionError" in str(se) or "Access is denied" in str(se):
-                print(f"[{Colors.YELLOW}ALERT{Colors.RESET}] {self.serial_port} is LOCKED by another program!")
-                print("        -> Please CLOSE the Arduino IDE Serial Monitor so Smart Lab can connect to hardware.")
-                print("        -> Retrying in 2 seconds...")
-                time.sleep(2.0)
+        for attempt in range(1, max_attempts + 1):
+            try:
+                self.relay_bridge = ESP32RelayBridge(
+                    config_path="config/relay_mapping.json",
+                    port=self.serial_port,
+                    strict_hardware=not self.allow_emulation,
+                )
+                if self.relay_bridge.is_connected:
+                    break
+            except Exception as e:
+                err_msg = str(e)
+                if attempt == 1:
+                    if "FileNotFoundError" in err_msg or "cannot find the file" in err_msg or "CM_PROB_FAILED_START" in err_msg:
+                        print(f"\n{Colors.YELLOW}{'=' * 65}{Colors.RESET}")
+                        print(f"{Colors.BOLD}{Colors.YELLOW}[HARDWARE RECONNECT REQUIRED]{Colors.RESET}")
+                        print(f"Windows CP210x USB Driver reports: 'Device cannot start (Code 10)'.")
+                        print(f"This occurs after flashing or Windows USB power-saving.")
+                        print(f"{Colors.BOLD}{Colors.GREEN}ACTION: Please UNPLUG the ESP32 USB cable and PLUG IT BACK IN now.{Colors.RESET}")
+                        print(f"{Colors.YELLOW}{'=' * 65}{Colors.RESET}\n")
+                    elif "PermissionError" in err_msg or "Access is denied" in err_msg:
+                        print(f"[{Colors.YELLOW}ALERT{Colors.RESET}] {self.serial_port} is LOCKED by another program (e.g. Arduino Serial Monitor). Please close it.")
 
-        # 3. Connect to Hardware Bridge (Relays + PZEM)
-        try:
-            self.relay_bridge = ESP32RelayBridge(
-                config_path="config/relay_mapping.json",
-                port=self.serial_port,
-                strict_hardware=True,
-            )
-            if self.relay_bridge.is_connected:
-                print(f"[{Colors.GREEN}OK{Colors.RESET}] ESP32 {self.serial_port}")
-                print(f"[{Colors.GREEN}OK{Colors.RESET}] Relay Controller (GPIO 22 -> Zone Z1 | GPIO 23 -> Zone Z9)")
-                print(f"[{Colors.GREEN}OK{Colors.RESET}] PZEM (Active load on Light 1 / Zone Z1)")
+                if attempt < max_attempts:
+                    print(f"[{Colors.YELLOW}WAITING{Colors.RESET}] Waiting for ESP32 connection on {self.serial_port} ({attempt}/{max_attempts})...")
+                    time.sleep(retry_delay)
+
+        if not (self.relay_bridge and self.relay_bridge.is_connected):
+            if not self.allow_emulation:
+                print(f"\n[{Colors.RED}FAIL{Colors.RESET}] ESP32 serial connection could not be opened on {self.serial_port}.")
+                print(f"        -> To connect real hardware: UNPLUG the ESP32 USB cable from your laptop and PLUG IT BACK IN.")
+                print(f"        -> To run the full system in software emulation mode for UI/vision testing, run:")
+                print(f"           python run_smart_lab.py --allow-emulation\n")
+                sys.exit(1)
             else:
-                print(f"[{Colors.RED}FAIL{Colors.RESET}] ESP32 serial connection did not open on {self.serial_port}.")
-                print("        -> Please upload the correct firmware to the ESP32 and retry.")
-                raise SystemExit(1)
-        except Exception as e:
-            print(f"[{Colors.RED}FAIL{Colors.RESET}] ESP32 Link: {e}")
-            raise SystemExit(1)
+                print(f"[{Colors.YELLOW}EMULATION{Colors.RESET}] Running in software emulation mode as requested by --allow-emulation.")
+                self.relay_bridge = ESP32RelayBridge(
+                    config_path="config/relay_mapping.json",
+                    port=self.serial_port,
+                    strict_hardware=False,
+                )
+
+        print(f"[{Colors.GREEN}OK{Colors.RESET}] ESP32 {self.serial_port}")
+        print(f"[{Colors.GREEN}OK{Colors.RESET}] Relay Controller (GPIO 22 -> Zone Z1 | GPIO 23 -> Zone Z9)")
+        print(f"[{Colors.GREEN}OK{Colors.RESET}] PZEM (Active load on Light 1 / Zone Z1)")
 
         # 4. Initialize Single-Capture Camera & Vision Pipeline
         try:
@@ -309,13 +328,15 @@ def main():
     parser.add_argument("--port", type=str, default="COM4", help="ESP32 serial port (default: COM4)")
     parser.add_argument("--api-port", type=int, default=5000, help="Web server port (default: 5000)")
     parser.add_argument("--no-gui", action="store_true", help="Run without OpenCV diagnostic window")
+    parser.add_argument("--allow-emulation", action="store_true", help="Allow software emulation fallback if ESP32 is not connected")
     args = parser.parse_args()
 
     runner = SmartLabRunner(
         camera_idx=args.camera,
         serial_port=args.port,
         api_port=args.api_port,
-        no_gui=args.no_gui
+        no_gui=args.no_gui,
+        allow_emulation=args.allow_emulation
     )
 
     # Register graceful signal handlers
