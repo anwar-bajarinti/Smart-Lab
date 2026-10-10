@@ -302,7 +302,7 @@ SMART LAB AUTOMATION — COMPLETE SYSTEM VERIFICATION
 ---
 
 ## Current Known Issues
-- None. All 38 automated tests pass, physical ESP32 relays toggle reliably on COM4, and PZEM reports live telemetry.
+- **CP210x USB Sleep/Re-enumeration State**: If Windows puts the USB hub to sleep or the laptop reboots while the ESP32 is connected, Windows Device Manager can report `Silicon Labs CP210x USB to UART Bridge (COM4)` in `CM_PROB_FAILED_START (Code 10)`. Simply unplugging and replugging the ESP32 USB cable into the laptop re-enumerates the hardware transceiver and restores active serial communication immediately.
 - **Port Contention Notice**: If the Arduino IDE Serial Monitor is open on COM4, Python serial scripts will receive `PermissionError (Access is denied)`. Closing the Serial Monitor immediately resolves this.
 
 ---

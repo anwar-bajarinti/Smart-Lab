@@ -176,6 +176,7 @@ class SmartLabRunner:
             cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
             cv2.resizeWindow(window_name, 1280 + 310, 720)
 
+        last_telemetry_print = 0.0
         try:
             while self.running:
                 # 1. Single Camera Capture
@@ -210,7 +211,28 @@ class SmartLabRunner:
                             pzem_data=self.relay_bridge.get_pzem_data()
                         )
 
-                # 6. Display Local OpenCV Diagnostic Window if enabled
+                # 6. Real-Time Terminal Event & Telemetry Output
+                for event in events:
+                    print(f"[{Colors.GREEN}EVENT{Colors.RESET}] {event}")
+
+                now = time.time()
+                if now - last_telemetry_print >= 2.0:
+                    last_telemetry_print = now
+                    occupied_zones = [zid for zid, z in zone_states.items() if z.get("occupied")]
+                    z2_vac = zone_states.get("Z2", {}).get("vacancy_remaining_seconds", 0.0)
+                    z8_vac = zone_states.get("Z8", {}).get("vacancy_remaining_seconds", 0.0)
+                    r1 = "ON" if self.relay_bridge and self.relay_bridge.relay_states.get("1") else "OFF"
+                    r2 = "ON" if self.relay_bridge and self.relay_bridge.relay_states.get("2") else "OFF"
+                    pzem = self.relay_bridge.get_pzem_data() if self.relay_bridge else {}
+                    pzem_str = f"{pzem.get('voltage')}V | {pzem.get('power')}W" if pzem.get("valid") else (pzem.get("status", "Standby"))
+                    vac_str = ""
+                    if z2_vac > 0:
+                        vac_str += f" | Z2 OFF in {z2_vac:.1f}s"
+                    if z8_vac > 0:
+                        vac_str += f" | Z8 OFF in {z8_vac:.1f}s"
+                    print(f"[{Colors.CYAN}LIVE{Colors.RESET}] FPS: {self.controller.fps:.1f} | People: {len(people)} | Occupied: {occupied_zones or 'None'} | R1(Z2): {r1} | R2(Z8): {r2}{vac_str} | PZEM: {pzem_str}")
+
+                # 7. Display Local OpenCV Diagnostic Window if enabled
                 if not self.no_gui:
                     cv2.imshow(window_name, annotated)
                     key = cv2.waitKey(1) & 0xFF
