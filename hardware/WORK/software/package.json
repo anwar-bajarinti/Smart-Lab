@@ -1,0 +1,20 @@
+{
+  "name": "incubation-cms-workspace",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "frontend"
+  ],
+  "scripts": {
+    "dev": "npm --prefix frontend run dev",
+    "build": "npm --prefix frontend run build",
+    "preview": "npm --prefix frontend run preview",
+    "lint": "npm --prefix frontend run lint",
+    "test": "node tests/unit/test_waveform_decoder.mjs && node tests/unit/test_barcode_robustness.mjs && node tests/integration/test_student_id_scan.mjs",
+    "test:unit": "node tests/unit/test_waveform_decoder.mjs && node tests/unit/test_barcode_robustness.mjs",
+    "test:integration": "node tests/integration/test_student_id_scan.mjs",
+    "test:ocr": "python tests/integration/test_ocr_api.py",
+    "ocr:start": "cd backend/ocr && python -m uvicorn ocr_server:app --host 127.0.0.1 --port 8000"
+  }
+}

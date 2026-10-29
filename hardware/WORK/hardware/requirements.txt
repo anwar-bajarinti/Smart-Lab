@@ -1,0 +1,14 @@
+# Core Vision & AI
+opencv-python>=4.8.0
+numpy>=1.24.0
+ultralytics>=8.0.0
+torch>=2.0.0
+
+# Backend & Web API
+Flask>=3.0.0
+pyserial>=3.5
+requests>=2.31.0
+
+# Testing & Utilities
+pytest>=7.4.0
+pytest-cov>=4.1.0
