@@ -1,0 +1,46 @@
+{
+  "description": "Configurable physical relay to zone mapping for Smart Lab Automation",
+  "default_active_high": true,
+  "leave_timeout_sec": 10.0,
+  "gesture_stability_sec": 0.8,
+  "relays": {
+    "1": {
+      "zone": "Z1",
+      "zones": ["Z1"],
+      "gpio": 22,
+      "label": "Real Light 1 (Relay 1)",
+      "active_high": true,
+      "description": "Mapped directly to Zone Z1 via GPIO 22"
+    },
+    "2": {
+      "zone": "Z9",
+      "zones": ["Z9"],
+      "gpio": 23,
+      "label": "Real Light 2 (Relay 2)",
+      "active_high": true,
+      "description": "Mapped directly to Zone Z9 via GPIO 23"
+    }
+  },
+  "status_led": {
+    "gpio": 2,
+    "is_appliance": false,
+    "description": "Optional ESP32 onboard status LED only; NOT an appliance or light substitute"
+  },
+  "serial": {
+    "auto_detect": true,
+    "port": "AUTO",
+    "baud_rate": 115200,
+    "timeout_sec": 0.5
+  },
+  "wifi": {
+    "enabled": false,
+    "esp32_ip": "192.168.1.150",
+    "port": 80
+  },
+  "pzem": {
+    "measured_device": "Light 1",
+    "measured_zone": "Z1",
+    "description": "Single PZEM-004T physical CT sensor connected to Light 1 in Zone Z1",
+    "polling_interval_sec": 1.5
+  }
+}
